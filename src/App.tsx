@@ -1002,15 +1002,19 @@ function App() {
   const { user: clerkUser } = useUser();
   const { signOut } = useClerk();
 
-  // Use localStorage auth user if available, otherwise fall back to Clerk user info
-  const user = authUser ?? {
-    id: clerkUser?.id ?? 'clerk-user',
-    name: clerkUser?.fullName ?? clerkUser?.firstName ?? 'User',
-    email: clerkUser?.primaryEmailAddress?.emailAddress ?? '',
+  // Clerk guarantees we are signed in (via <SignedIn> gate in main.tsx).
+  // Use localStorage auth user if available, otherwise build from Clerk user.
+  const user = authUser ?? (clerkUser ? {
+    id: clerkUser.id,
+    name: clerkUser.fullName ?? clerkUser.firstName ?? 'User',
+    email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     role: 'super_admin' as const,
     status: 'active' as const,
     assignedCountries: [] as string[],
-  };
+  } : null);
+
+  // Should never happen — Clerk gate ensures we have a user
+  if (!user) return null;
 
   const logout = () => { signOut(); };
   const isCountryRep = user?.role === 'country_rep';
