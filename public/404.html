@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script>
+    // Redirect all 404s to index.html for SPA routing
+    var path = window.location.pathname;
+    var search = window.location.search;
+    var hash = window.location.hash;
+    window.location.replace(
+      window.location.origin + '/ar-tabshir/' +
+      '?p=' + encodeURIComponent(path) +
+      '&s=' + encodeURIComponent(search) +
+      '&h=' + encodeURIComponent(hash)
+    );
+  </script>
+</head>
+<body></body>
+</html>
