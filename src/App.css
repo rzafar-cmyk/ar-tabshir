@@ -1,0 +1,165 @@
+[dir="rtl"] {
+  font-family: 'Noto Nastaliq Urdu', serif;
+  line-height: 2.2;
+}
+
+/* Annual Reports Dashboard Styles */
+
+#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Will-change for animated elements */
+.summary-card,
+.chart-left,
+.chart-right,
+.trend-left,
+.trend-item {
+  will-change: transform, opacity;
+}
+
+/* Focus styles */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #2B6EE3;
+  outline-offset: 2px;
+}
+
+/* Chart tooltip customization */
+.recharts-tooltip-wrapper {
+  z-index: 100;
+}
+
+/* Card hover enhancement */
+.bg-white {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* Progress bar animation */
+.bg-emerald-400,
+.bg-blue-300,
+.bg-amber-400 {
+  transition: width 1s ease-out;
+}
+
+/* Sidebar transition */
+aside {
+  will-change: width;
+}
+
+/* Main content transition */
+main {
+  will-change: margin-left;
+}
+
+/* Language toggle RTL support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+/* Number font for statistics */
+.text-3xl,
+.text-4xl {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status badge transitions */
+.trend-item {
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.trend-item:hover {
+  filter: brightness(0.97);
+}
+
+/* Quick filter button transitions */
+button[class*="rounded-full"] {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Input focus ring */
+input:focus,
+select:focus {
+  box-shadow: 0 0 0 2px rgba(43, 110, 227, 0.2);
+}
+
+/* Chart bar hover */
+.recharts-bar-rectangle:hover {
+  filter: brightness(0.9);
+}
+
+/* Line chart dot hover */
+.recharts-dot:hover {
+  r: 6;
+  transition: r 0.15s ease;
+}
+
+/* Mermaid Diagram Styles */
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-diagram .node rect,
+.mermaid-diagram .node circle,
+.mermaid-diagram .node ellipse,
+.mermaid-diagram .node polygon {
+  stroke-width: 2px;
+}
+
+.mermaid-diagram .edgeLabel {
+  background-color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.mermaid-diagram .cluster rect {
+  rx: 8px;
+  ry: 8px;
+}
+
+.mermaid-diagram text {
+  font-family: 'Inter', -apple-system, sans-serif;
+}

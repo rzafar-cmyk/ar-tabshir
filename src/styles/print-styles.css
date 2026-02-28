@@ -1,0 +1,326 @@
+/* PRINT STYLES — Annual Report Printable View */
+
+/* ── Print Media Rules ── */
+@media print {
+  /* Hide the React app root */
+  #root {
+    display: none !important;
+  }
+  /* Show the portal overlay (it's a direct child of body, not inside #root) */
+  #printable-report-overlay {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    z-index: 99999 !important;
+    background: white !important;
+  }
+  #printable-report-overlay .print-container {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 20px !important;
+    max-width: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  html {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  /* Allow sections to break across pages if needed */
+  .print-section {
+    page-break-inside: auto;
+    break-inside: auto;
+    margin-bottom: 8px;
+  }
+  /* Keep section header attached to at least some content */
+  .print-section-header {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  /* Small items should stay together */
+  .print-dynamic-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Table rows stay together */
+  .print-table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Subsection headers stay with content */
+  .print-subsection-title {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  /* Signature block stays together */
+  .print-signature-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Reduce spacing to pack content tighter */
+  .print-table td {
+    padding: 5px 12px;
+  }
+}
+
+/* ── Print Container ── */
+.print-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 40px;
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  color: #1a1a1a;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ── Improved Header ── */
+.print-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 3px solid #1e3a5f;
+}
+.print-header-logo {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  border-radius: 12px;
+  background: #1e3a5f;
+  color: white;
+  font-size: 18px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 1px;
+}
+.print-header-text {
+  flex: 1;
+}
+.print-main-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1e3a5f;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.print-subtitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #374151;
+  margin: 4px 0 0 0;
+}
+.print-subtitle-urdu {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 4px 0 0 0;
+  font-family: 'Noto Nastaliq Urdu', serif;
+  line-height: 2.2;
+}
+.print-header-meta {
+  text-align: right;
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.8;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
+/* ── Improved Divider ── */
+.print-divider {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 16px 0;
+}
+
+/* ── Improved Sections ── */
+.print-section {
+  margin-bottom: 20px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.print-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #1e3a5f;
+  border-bottom: none;
+}
+.print-section-number {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.print-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+}
+.print-section-urdu {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  font-family: 'Noto Nastaliq Urdu', serif;
+  line-height: 2;
+}
+
+/* ── Improved Tables ── */
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.print-table tr {
+  border-bottom: 1px solid #e5e7eb;
+}
+.print-table tr:last-child {
+  border-bottom: none;
+}
+.print-table tr:nth-child(even) {
+  background: #f9fafb;
+}
+.print-table td {
+  padding: 7px 16px;
+  vertical-align: top;
+}
+.print-label {
+  font-size: 11.5px;
+  color: #374151;
+  font-weight: 500;
+  width: 62%;
+}
+.print-label-urdu {
+  display: block;
+  font-size: 10.5px;
+  color: #374151;
+  font-family: 'Noto Nastaliq Urdu', serif;
+  line-height: 2;
+  margin-top: 2px;
+  text-align: left;
+  direction: ltr;
+}
+.print-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  text-align: right;
+  width: 38%;
+}
+
+/* ── Improved Subsections ── */
+.print-subsection {
+  margin: 0;
+  border-top: 1px solid #e5e7eb;
+}
+.print-subsection-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1e3a5f;
+  padding: 8px 16px 4px;
+  margin: 0;
+  background: #f0f4f8;
+  border-bottom: 1px solid #e5e7eb;
+}
+.print-subsection-urdu {
+  font-size: 10px;
+  color: #6b7280;
+  font-family: 'Noto Nastaliq Urdu', serif;
+}
+
+/* ── Improved Dynamic Blocks ── */
+.print-dynamic-block {
+  margin: 8px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.print-dynamic-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  padding: 6px 12px;
+  background: #475569;
+}
+.print-dynamic-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 11.5px;
+}
+.print-dynamic-row:last-child {
+  border-bottom: none;
+}
+.print-dynamic-row:nth-child(even) {
+  background: #f9fafb;
+}
+.print-dynamic-label {
+  color: #4b5563;
+}
+.print-dynamic-value {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* ── Improved Additional Notes ── */
+.print-additional-notes {
+  padding: 8px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #fefce8;
+}
+.print-notes-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #92400e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 2px 0;
+}
+.print-notes-text {
+  font-size: 11.5px;
+  color: #78350f;
+  margin: 0;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* ── Improved Footer ── */
+.print-footer {
+  margin-top: 32px;
+  padding-top: 12px;
+  border-top: 2px solid #1e3a5f;
+}
+.print-footer-content {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #6b7280;
+}
