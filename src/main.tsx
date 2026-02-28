@@ -20,11 +20,17 @@ if (!clerkPubKey) {
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <ClerkProvider publishableKey={clerkPubKey}>
+      <ClerkProvider
+        publishableKey={clerkPubKey}
+        afterSignInUrl="/ar-tabshir/"
+        afterSignUpUrl="/ar-tabshir/"
+        signInForceRedirectUrl="/ar-tabshir/"
+        signUpForceRedirectUrl="/ar-tabshir/"
+      >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <SignedOut>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-              <SignIn routing="hash" />
+              <SignIn routing="hash" forceRedirectUrl="/ar-tabshir/" />
             </div>
           </SignedOut>
           <SignedIn>
