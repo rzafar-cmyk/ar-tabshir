@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { getUserByEmail, getUserById, type StoredUser } from '@/services/dataService';
-import { verifyPassword } from '@/lib/crypto';
+import { useUser, useClerk } from '@clerk/clerk-react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 export interface AuthUser {
   id: string;
@@ -11,90 +12,78 @@ export interface AuthUser {
   status: 'active' | 'inactive';
   assignedCountries?: string[];
   assignedDesk?: string;
-  phone?: string;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  /** Refresh the current session from localStorage (call after editing a user). */
+  /** Re-fetches are automatic via Convex reactivity. */
   refreshUser: () => void;
-}
-
-const SESSION_KEY = 'ar-tabshir-session';
-
-/** Strip the password field so it never leaks into React state / localStorage. */
-function toAuthUser(stored: StoredUser): AuthUser {
-  return {
-    id: stored.id,
-    name: stored.name,
-    email: stored.email,
-    role: stored.role,
-    status: stored.status,
-    assignedCountries: stored.assignedCountries,
-    assignedDesk: stored.assignedDesk,
-    phone: stored.phone,
-  };
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Hydrate session from localStorage on first render
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const stored = localStorage.getItem(SESSION_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as AuthUser;
-        // Re-read from the users store so edits are reflected
-        const fresh = getUserById(parsed.id);
-        return fresh ? toAuthUser(fresh) : null;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
+  const { user: clerkUser } = useUser();
+  const { signOut } = useClerk();
+  const clerkId = clerkUser?.id ?? '';
 
-  // Persist session whenever it changes
+  // Look up Convex user by Clerk ID (reactive — auto-updates)
+  const convexUser = useQuery(
+    api.users.getUserByClerkId,
+    clerkId ? { clerkId } : 'skip'
+  );
+
+  // Mutation to create/update user on sign-in
+  const createOrUpdate = useMutation(api.users.createOrUpdateUser);
+
+  // When Clerk user is available but Convex user is not found, create one
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(SESSION_KEY);
+    if (!clerkUser || convexUser === undefined) return; // still loading
+    if (convexUser === null) {
+      // User signed in via Clerk but has no Convex record yet
+      createOrUpdate({
+        clerkId: clerkUser.id,
+        name: clerkUser.fullName ?? clerkUser.firstName ?? 'User',
+        email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
+      });
     }
-  }, [user]);
+  }, [clerkUser, convexUser, createOrUpdate]);
 
-  // Login reads from localStorage via dataService, hashes input to compare
-  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    const found = getUserByEmail(email);
-    if (!found) return { success: false, error: 'No account found with that email.' };
-    const match = await verifyPassword(password, found.password);
-    if (!match) return { success: false, error: 'Incorrect password.' };
-    if (found.status === 'inactive') return { success: false, error: 'This account is inactive. Contact an administrator.' };
-    setUser(toAuthUser(found));
-    return { success: true };
-  }, []);
+  // Also sync name/email on every sign-in (handled by createOrUpdateUser mutation)
+  useEffect(() => {
+    if (!clerkUser || !convexUser) return;
+    createOrUpdate({
+      clerkId: clerkUser.id,
+      name: clerkUser.fullName ?? clerkUser.firstName ?? 'User',
+      email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
+    });
+    // Only run once when both are available
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkUser?.id]);
 
-  const logout = useCallback(() => {
-    setUser(null);
-  }, []);
+  // Build the AuthUser from Convex data
+  const user: AuthUser | null = convexUser
+    ? {
+        id: convexUser._id,
+        name: convexUser.name,
+        email: convexUser.email,
+        role: convexUser.role,
+        status: convexUser.isActive ? 'active' : 'inactive',
+        assignedCountries: convexUser.assignedCountries,
+        assignedDesk: convexUser.assignedDesk,
+      }
+    : null;
 
-  // Re-read the current user from localStorage (e.g. after admin edits their profile)
-  const refreshUser = useCallback(() => {
-    if (!user) return;
-    const fresh = getUserById(user.id);
-    if (fresh) {
-      setUser(toAuthUser(fresh));
-    } else {
-      // User was deleted — force logout
-      setUser(null);
-    }
-  }, [user]);
+  const logout = () => {
+    signOut();
+  };
+
+  // refreshUser is a no-op — Convex queries are reactive and auto-refresh
+  const refreshUser = () => {};
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Users, UserPlus, Search, MoreHorizontal, Edit2, Trash2, Shield, MapPin, Building2, CheckCircle, XCircle, Mail, Phone, KeyRound } from 'lucide-react';
+import { Users, Search, MoreHorizontal, Edit2, Trash2, Shield, MapPin, Building2, CheckCircle, XCircle, Mail } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUsers, type StoredUser } from '@/services/dataService';
-import { addUser, updateUser, deleteUser, resetPassword } from '@/services/userService';
-import { UserFormModal, DeleteConfirmModal, ResetPasswordModal } from './UserModals';
-
-type User = StoredUser;
+import { useUser } from '@clerk/clerk-react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
+import { UserFormModal, DeleteConfirmModal } from './UserModals';
+import type { ConvexUserRecord } from './UserModals';
 
 const roleConfig = {
   super_admin: { label: 'Super Admin', color: 'bg-purple-100 text-purple-700', icon: Shield },
@@ -14,26 +15,42 @@ const roleConfig = {
 };
 
 export function UsersSection() {
-  const { user: authUser, refreshUser } = useAuth();
+  const { user: authUser } = useAuth();
+  const { user: clerkUser } = useUser();
   const currentUserRole = authUser?.role ?? 'country_rep';
+  const clerkId = clerkUser?.id ?? '';
 
-  // ── Live user list from localStorage ──
-  const [users, setUsers] = useState<User[]>(() => getUsers());
-  const refreshUsers = useCallback(() => setUsers(getUsers()), []);
+  // Fetch all users from Convex (reactive)
+  const convexUsers = useQuery(api.users.getAllUsers) ?? [];
 
-  // ── Filters ──
+  // Mutations
+  const updateUserMut = useMutation(api.users.updateUser);
+  const deleteUserMut = useMutation(api.users.deleteUser);
+
+  // Map to the shape the UI expects
+  const users: ConvexUserRecord[] = convexUsers.map(u => ({
+    _id: u._id,
+    clerkId: u.clerkId,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    assignedCountries: u.assignedCountries,
+    assignedDesk: u.assignedDesk,
+    isActive: u.isActive,
+    lastLogin: u.lastLogin,
+  }));
+
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // ── Modal / dialog states ──
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  // Modal states
+  const [selectedUser, setSelectedUser] = useState<ConvexUserRecord | null>(null);
+  const [editingUser, setEditingUser] = useState<ConvexUserRecord | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [showResetPassword, setShowResetPassword] = useState<string | null>(null);
 
-  // ── Toast notification ──
+  // Toast
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
     if (!toast) return;
@@ -41,60 +58,36 @@ export function UsersSection() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // ── Modal callbacks ──
-  const handleAddUser = useCallback(async (data: { name: string; email: string; password: string; role: User['role']; assignedCountries?: string[]; assignedDesk?: string }) => {
-    const result = await addUser({ ...data, status: 'active' });
-    if (result.success) {
-      refreshUsers();
-      setShowAddModal(false);
-      setToast(`User "${data.name}" added successfully.`);
-    }
-    return result;
-  }, [refreshUsers]);
-
-  const handleEditUser = useCallback(async (data: { name: string; email: string; password: string; role: User['role']; assignedCountries?: string[]; assignedDesk?: string }) => {
-    if (!editingUser) return { success: false as const, error: 'No user selected.' };
-    const changes: Record<string, unknown> = {
-      name: data.name,
-      email: data.email,
+  // Edit handler
+  const handleEditUser = useCallback(async (data: {
+    role: ConvexUserRecord['role'];
+    assignedCountries?: string[];
+    assignedDesk?: string;
+    isActive: boolean;
+  }) => {
+    if (!editingUser) return;
+    await updateUserMut({
+      userId: editingUser._id as Id<"users">,
+      callerClerkId: clerkId,
       role: data.role,
       assignedCountries: data.assignedCountries,
       assignedDesk: data.assignedDesk,
-    };
-    const result = updateUser(editingUser.id, changes);
-    if (result.success) {
-      // If password was provided, also reset it
-      if (data.password) {
-        await resetPassword(editingUser.id, data.password);
-      }
-      refreshUsers();
-      // Refresh session if editing the currently logged-in user
-      if (editingUser.id === authUser?.id) refreshUser();
-      setEditingUser(null);
-      setToast(`User "${data.name}" updated successfully.`);
-    }
-    return result;
-  }, [editingUser, authUser?.id, refreshUsers, refreshUser]);
+      isActive: data.isActive,
+    });
+    setEditingUser(null);
+    setToast(`User "${editingUser.name}" updated successfully.`);
+  }, [editingUser, clerkId, updateUserMut]);
 
-  const handleDeleteUser = useCallback(() => {
-    if (!showDeleteConfirm || !authUser) return;
-    const result = deleteUser(showDeleteConfirm, authUser.id);
-    if (result.success) {
-      refreshUsers();
-      setShowDeleteConfirm(null);
-      setToast('User deleted successfully.');
-    }
-  }, [showDeleteConfirm, authUser, refreshUsers]);
-
-  const handleResetPassword = useCallback(async (newPassword: string) => {
-    if (!showResetPassword) return { success: false as const, error: 'No user selected.' };
-    const result = await resetPassword(showResetPassword, newPassword);
-    if (result.success) {
-      setShowResetPassword(null);
-      setToast('Password reset successfully.');
-    }
-    return result;
-  }, [showResetPassword]);
+  // Delete handler
+  const handleDeleteUser = useCallback(async () => {
+    if (!showDeleteConfirm) return;
+    await deleteUserMut({
+      userId: showDeleteConfirm as Id<"users">,
+      callerClerkId: clerkId,
+    });
+    setShowDeleteConfirm(null);
+    setToast('User deleted successfully.');
+  }, [showDeleteConfirm, clerkId, deleteUserMut]);
 
   const filteredUsers = users.filter(user => {
     if (searchQuery) {
@@ -106,7 +99,10 @@ export function UsersSection() {
       }
     }
     if (roleFilter !== 'all' && user.role !== roleFilter) return false;
-    if (statusFilter !== 'all' && user.status !== statusFilter) return false;
+    if (statusFilter !== 'all') {
+      const isActive = statusFilter === 'active';
+      if (user.isActive !== isActive) return false;
+    }
     return true;
   });
 
@@ -115,8 +111,8 @@ export function UsersSection() {
     superAdmin: users.filter(u => u.role === 'super_admin').length,
     deskIncharge: users.filter(u => u.role === 'desk_incharge').length,
     countryRep: users.filter(u => u.role === 'country_rep').length,
-    active: users.filter(u => u.status === 'active').length,
-    inactive: users.filter(u => u.status === 'inactive').length,
+    active: users.filter(u => u.isActive).length,
+    inactive: users.filter(u => !u.isActive).length,
   };
 
   return (
@@ -130,15 +126,6 @@ export function UsersSection() {
           </h2>
           <p className="text-sm text-gray-500">Manage users, roles, and country assignments</p>
         </div>
-        {currentUserRole === 'super_admin' && (
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <UserPlus className="w-4 h-4" />
-            Add User
-          </button>
-        )}
       </div>
 
       {/* Stats Cards */}
@@ -181,21 +168,13 @@ export function UsersSection() {
             className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
           />
         </div>
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-100 outline-none"
-        >
+        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-100 outline-none">
           <option value="all">All Roles</option>
           <option value="super_admin">Super Admin</option>
           <option value="desk_incharge">Desk In-charge</option>
           <option value="country_rep">Country Rep</option>
         </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-100 outline-none"
-        >
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-100 outline-none">
           <option value="all">All Status</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
@@ -221,7 +200,7 @@ export function UsersSection() {
                 const role = roleConfig[user.role];
                 const RoleIcon = role.icon;
                 return (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={user._id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -243,9 +222,9 @@ export function UsersSection() {
                       {user.assignedDesk ? (
                         <div>
                           <p className="text-sm text-gray-700">{user.assignedDesk}</p>
-                          <p className="text-xs text-gray-400">{user.assignedCountries?.length} countries</p>
+                          <p className="text-xs text-gray-400">{user.assignedCountries.length} countries</p>
                         </div>
-                      ) : user.assignedCountries ? (
+                      ) : user.assignedCountries.length > 0 ? (
                         <p className="text-sm text-gray-700">{user.assignedCountries.join(', ')}</p>
                       ) : (
                         <span className="text-xs text-gray-400">All Countries</span>
@@ -253,48 +232,29 @@ export function UsersSection() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full ${
-                        user.status === 'active' 
-                          ? 'bg-emerald-50 text-emerald-600' 
-                          : 'bg-red-50 text-red-600'
+                        user.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
                       }`}>
-                        {user.status === 'active' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                        {user.status}
+                        {user.isActive ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                        {user.isActive ? 'active' : 'inactive'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-sm text-gray-600">{user.lastLogin || 'Never'}</p>
+                      <p className="text-sm text-gray-600">
+                        {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => setSelectedUser(user)}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="View Details"
-                        >
+                        <button onClick={() => setSelectedUser(user)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                         {currentUserRole === 'super_admin' && (
                           <>
-                            <button
-                              onClick={() => setEditingUser(user)}
-                              className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                              title="Edit"
-                            >
+                            <button onClick={() => setEditingUser(user)} className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Edit">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => setShowResetPassword(user.id)}
-                              className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                              title="Reset Password"
-                            >
-                              <KeyRound className="w-4 h-4" />
-                            </button>
-                            {user.id !== authUser?.id && (
-                              <button
-                                onClick={() => setShowDeleteConfirm(user.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Delete"
-                              >
+                            {user._id !== authUser?.id && (
+                              <button onClick={() => setShowDeleteConfirm(user._id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
@@ -310,20 +270,12 @@ export function UsersSection() {
         </div>
       </div>
 
-      {/* Toast notification */}
+      {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 px-4 py-3 bg-gray-800 text-white text-sm rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-2">
           {toast}
         </div>
       )}
-
-      {/* Add User Modal */}
-      <UserFormModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSave={handleAddUser}
-        editingUser={null}
-      />
 
       {/* Edit User Modal */}
       <UserFormModal
@@ -333,20 +285,12 @@ export function UsersSection() {
         editingUser={editingUser}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <DeleteConfirmModal
         isOpen={!!showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(null)}
         onConfirm={handleDeleteUser}
-        userName={users.find(u => u.id === showDeleteConfirm)?.name ?? ''}
-      />
-
-      {/* Reset Password Dialog */}
-      <ResetPasswordModal
-        isOpen={!!showResetPassword}
-        onClose={() => setShowResetPassword(null)}
-        onSave={handleResetPassword}
-        userName={users.find(u => u.id === showResetPassword)?.name ?? ''}
+        userName={users.find(u => u._id === showDeleteConfirm)?.name ?? ''}
       />
 
       {/* User Detail Modal */}
@@ -371,15 +315,10 @@ export function UsersSection() {
                   </span>
                 </div>
               </div>
-              
               <div className="space-y-3 pt-4 border-t border-gray-100">
                 <div className="flex items-center gap-3">
                   <Mail className="w-4 h-4 text-gray-400" />
                   <span className="text-sm text-gray-600">{selectedUser.email}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">{selectedUser.phone || 'N/A'}</span>
                 </div>
                 {selectedUser.assignedDesk && (
                   <div className="flex items-center gap-3">
@@ -387,14 +326,10 @@ export function UsersSection() {
                     <span className="text-sm text-gray-600">{selectedUser.assignedDesk}</span>
                   </div>
                 )}
-                {selectedUser.assignedCountries && (
+                {selectedUser.assignedCountries.length > 0 && (
                   <div className="flex items-start gap-3">
                     <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        {selectedUser.assignedCountries.join(', ')}
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-600">{selectedUser.assignedCountries.join(', ')}</p>
                   </div>
                 )}
               </div>

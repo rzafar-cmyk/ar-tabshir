@@ -15,6 +15,7 @@ export default defineSchema({
   }),
 
   users: defineTable({
+    clerkId: v.string(),
     name: v.string(),
     email: v.string(),
     role: v.union(
@@ -23,10 +24,12 @@ export default defineSchema({
       v.literal("country_rep")
     ),
     assignedCountries: v.array(v.string()),
+    assignedDesk: v.optional(v.string()),
     isActive: v.boolean(),
     createdAt: v.number(),
     lastLogin: v.number(),
-  }),
+  }).index("by_clerkId", ["clerkId"])
+    .index("by_email", ["email"]),
 
   audit_log: defineTable({
     userId: v.string(),
