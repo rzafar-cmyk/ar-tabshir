@@ -20,7 +20,7 @@ import { AuditLogSection } from "./components/audit/AuditLogSection";
 import { ImportHistoricalData } from "./components/import/ImportHistoricalData";
 import { FactoryReset } from "./components/admin/FactoryReset";
 import { SettingsPage } from "./components/settings/SettingsPage";
-import { LoginPage } from "./components/auth/LoginPage";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import { CountryDashboard } from "./components/country-rep/CountryDashboard";
 import { DeskInchargeDashboard } from "./components/desk-incharge/DeskInchargeDashboard";
 import { DeadlineCountdown } from "./components/shared/DeadlineCountdown";
@@ -998,7 +998,21 @@ function resolveInitialTab(role?: string): string {
 }
 
 function App() {
-  const { user, logout } = useAuth();
+  const { user: authUser } = useAuth();
+  const { user: clerkUser } = useUser();
+  const { signOut } = useClerk();
+
+  // Use localStorage auth user if available, otherwise fall back to Clerk user info
+  const user = authUser ?? {
+    id: clerkUser?.id ?? 'clerk-user',
+    name: clerkUser?.fullName ?? clerkUser?.firstName ?? 'User',
+    email: clerkUser?.primaryEmailAddress?.emailAddress ?? '',
+    role: 'super_admin' as const,
+    status: 'active' as const,
+    assignedCountries: [] as string[],
+  };
+
+  const logout = () => { signOut(); };
   const isCountryRep = user?.role === 'country_rep';
   const primaryCountry = user?.assignedCountries?.[0] ?? '';
   const managedCountries = isCountryRep && primaryCountry
@@ -1280,7 +1294,7 @@ function App() {
     }
   }, []);
 
-  if (!user) return <LoginPage />;
+  // Clerk handles authentication gate in main.tsx — no login check needed here
 
   const userInitials = user.name.split(' ').map(n => n[0]).join('');
 
