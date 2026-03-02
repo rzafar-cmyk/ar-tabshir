@@ -4,6 +4,7 @@ import { ClerkProvider, SignedIn, SignedOut, SignIn, useAuth } from '@clerk/cler
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 import { ConvexReactClient } from 'convex/react'
 import { AuthProvider } from './contexts/AuthContext'
+import { ConvexDataProvider } from './contexts/ConvexDataContext'
 import './index.css'
 import App from './App.tsx'
 
@@ -36,7 +37,9 @@ if (!clerkPubKey) {
           </SignedOut>
           <SignedIn>
             <AuthProvider>
-              <App />
+              <ConvexDataProvider>
+                <App />
+              </ConvexDataProvider>
             </AuthProvider>
           </SignedIn>
         </ConvexProviderWithClerk>

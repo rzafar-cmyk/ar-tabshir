@@ -5,11 +5,10 @@ import { PrintableReport } from './PrintableReport';
 import '@/styles/print-styles.css';
 import { REPORT_FORM_SECTIONS, PROPERTY_DETAIL_FIELDS, PUBLICATION_DETAIL_FIELDS, CENTRAL_REP_DETAIL_FIELDS, MISSIONARY_DETAIL_FIELDS } from '@/data/reportFormSchema';
 import type { FormField, FormSubsection } from '@/data/reportFormSchema';
-import { getReports, saveReports } from '@/services/dataService';
 import { FIELD_MAP, normalizeReportData } from '@/lib/field-map';
 import { getContinentForCountry } from '@/data/countries';
 import { useAuth } from '@/contexts/AuthContext';
-import { logAuditEvent } from '@/lib/audit';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 import type { FieldChange } from '@/lib/audit';
 import { buildCarryForwardData, CARRY_FORWARD_FIELD_CODES } from '@/lib/carry-forward';
 import { getCurrentFiscalYear } from '@/lib/fiscalYear';
@@ -768,6 +767,7 @@ function SectionProgressSidebar({
 // ─── Main Report Form ───
 export function ReportForm({ country, countryName, year = getCurrentFiscalYear(), initialData, revisionFlags: propRevisionFlags, onSave, onSubmit, onResubmit, readOnly }: ReportFormProps) {
   const { user: authUser } = useAuth();
+  const { allReports: convexReports, saveReport: convexSaveReport, logAuditEvent } = useConvexData();
   const resolvedCountry = country || countryName || '';
   const [formData, setFormData] = useState<Record<string, string | number>>({});
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['jamaats']));
@@ -786,7 +786,7 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
       return;
     }
     if (!resolvedCountry) return;
-    const reports = getReports() as ReportData[];
+    const reports = convexReports as unknown as ReportData[];
     // In readOnly mode, show any report (including archived). Otherwise skip archived.
     const existing = readOnly
       ? reports.find((r) => r.country === resolvedCountry && r.year === year)
@@ -805,11 +805,11 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
     } else if (Object.keys(carryForward).length > 0) {
       setFormData(carryForward);
     }
-  }, [resolvedCountry, year, initialData]);
+  }, [resolvedCountry, year, initialData, convexReports]);
 
   useEffect(() => {
     if (!resolvedCountry || readOnly) return;
-    const interval = setInterval(() => { saveFormData('draft', true); setLastSaved(new Date().toLocaleTimeString()); }, 30000);
+    const interval = setInterval(() => { saveFormData('draft', true).then(() => setLastSaved(new Date().toLocaleTimeString())); }, 30000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCountry, formData, readOnly]);
@@ -868,30 +868,28 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
     return map;
   }, []);
 
-  const saveFormData = (status: 'draft' | 'submitted' = 'draft', autoSave = false) => {
+  const saveFormData = async (status: 'draft' | 'submitted' = 'draft', autoSave = false) => {
     if (!resolvedCountry) return;
-    const reports = getReports() as ReportData[];
+    const reports = convexReports as unknown as ReportData[];
     const now = new Date().toISOString();
-    const idx = reports.findIndex((r) => r.country === resolvedCountry && r.year === year && !(r as any).archived);
+    const existingIdx = reports.findIndex((r) => r.country === resolvedCountry && r.year === year && !(r as any).archived);
     // Preserve revision_requested status during auto-save so flags/banner remain visible
-    const currentStatus = idx >= 0 ? reports[idx].status : 'draft';
+    const currentStatus = existingIdx >= 0 ? reports[existingIdx].status : 'draft';
     const effectiveStatus = (status === 'draft' && (currentStatus === 'revision_requested' || currentStatus === 'update_in_progress'))
       ? currentStatus
       : status;
 
     // Compute field-level changes for audit (only on explicit save/submit)
     let changes: FieldChange[] | undefined;
-    const isNewReport = idx < 0;
-    if (!autoSave && idx >= 0) {
-      const oldData = reports[idx].data || {};
+    const isNewReport = existingIdx < 0;
+    if (!autoSave && existingIdx >= 0) {
+      const oldData = reports[existingIdx].data || {};
       changes = [];
       const allKeys = new Set([...Object.keys(oldData), ...Object.keys(formData)]);
       for (const key of allKeys) {
-        // Skip dynamic fields (missionaries), additional notes, and non-schema keys
         if (key.startsWith('cmd_') || key.endsWith('_additional_notes')) continue;
         const oldVal = oldData[key];
         const newVal = formData[key];
-        // Normalize: treat undefined/null/'' as equivalent
         const oldNorm = (oldVal === undefined || oldVal === null || oldVal === '') ? '' : String(oldVal);
         const newNorm = (newVal === undefined || newVal === null || newVal === '') ? '' : String(newVal);
         if (oldNorm !== newNorm) {
@@ -906,17 +904,20 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
       if (changes.length === 0) changes = undefined;
     }
 
-    const reportObj: ReportData = { id: `report-${resolvedCountry}-${year}`, country: resolvedCountry, continent: getContinentForCountry(resolvedCountry), year, status: effectiveStatus, data: formData, lastUpdated: now, submittedAt: effectiveStatus === 'submitted' ? now : (idx >= 0 ? reports[idx].submittedAt : undefined), submittedBy: authUser?.name ?? '', submittedByUserId: authUser?.id ?? '', progress: calculateProgress() };
-    if (idx >= 0) {
-      reports[idx] = { ...reports[idx], ...reportObj };
-      // Clear revision flags on resubmission
-      if (effectiveStatus === 'submitted') {
-        delete (reports[idx] as any).revisionFlags;
-      }
-    } else {
-      reports.push(reportObj);
-    }
-    saveReports(reports as any);
+    // Save via Convex mutation (upserts by country+year)
+    const revisionFlags = effectiveStatus === 'submitted' ? undefined : (existingIdx >= 0 ? (reports[existingIdx] as any).revisionFlags : undefined);
+    await convexSaveReport({
+      country: resolvedCountry,
+      continent: getContinentForCountry(resolvedCountry),
+      year,
+      status: effectiveStatus,
+      data: formData,
+      progress: calculateProgress(),
+      submittedBy: authUser?.name ?? '',
+      submittedByUserId: authUser?.id ?? '',
+      submittedAt: effectiveStatus === 'submitted' ? now : (existingIdx >= 0 ? reports[existingIdx].submittedAt : undefined),
+      revisionFlags,
+    });
 
     // Audit logging — skip for auto-save
     if (!autoSave) {
@@ -936,22 +937,19 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
           : `Draft saved for ${resolvedCountry}`;
       }
 
-      logAuditEvent({
+      await logAuditEvent({
         action,
         country: resolvedCountry,
-        user: authUser?.name ?? 'Unknown',
-        role: authUser?.role ?? 'country_rep',
-        timestamp: now,
         details,
-        changes,
+        changes: changes ? JSON.stringify(changes) : undefined,
       });
     }
   };
 
-  const handleSave = () => { saveFormData('draft', false); setToast('Report saved as draft.'); setLastSaved(new Date().toLocaleTimeString()); if (onSave) onSave(formData); };
-  const handleSubmit = () => {
+  const handleSave = async () => { await saveFormData('draft', false); setToast('Report saved as draft.'); setLastSaved(new Date().toLocaleTimeString()); if (onSave) onSave(formData); };
+  const handleSubmit = async () => {
     const isResubmit = existingReport?.status === 'revision_requested';
-    saveFormData('submitted', false);
+    await saveFormData('submitted', false);
     setToast(isResubmit ? 'Report resubmitted!' : 'Report submitted!');
     // Open print preview first, then notify parent after a delay
     setShowPrint(true);
@@ -966,8 +964,7 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
   const progress = calculateProgress();
   const completedSections = REPORT_FORM_SECTIONS.filter(s => getSectionProgress(s.id, formData).percent === 100).length;
 
-  const reports = getReports() as ReportData[];
-  const existingReport = reports.find((r) => r.country === resolvedCountry && r.year === year && !(r as any).archived);
+  const existingReport = (convexReports as unknown as ReportData[]).find((r) => r.country === resolvedCountry && r.year === year && !(r as any).archived);
   const revisionFlagsArray: RevisionFlag[] = propRevisionFlags || existingReport?.revisionFlags || [];
   const revisionFlagsMap: Record<string, { note: string }> = {};
   // Build column→excel_code lookup for backward compat (old flags used column names)

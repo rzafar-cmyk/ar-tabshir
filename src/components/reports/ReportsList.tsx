@@ -1,7 +1,7 @@
 import { Fragment, useState, useMemo, useEffect } from 'react';
 import { Search, Filter, ChevronDown, ChevronUp, ChevronRight, Eye, Edit2, CheckCircle, XCircle, Download, Trash2, Ban, RotateCcw, ShieldCheck, Archive, ArchiveRestore } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getReports, saveReports } from '@/services/dataService';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 import { RevisionReviewModal } from './RevisionReviewModal';
 import { formatFiscalYear } from '@/lib/fiscalYear';
 
@@ -78,6 +78,7 @@ export function ReportsList({
   isArchiveView = false,
 }: ReportsListProps) {
   const { user: authUser } = useAuth();
+  const { updateReportStatus: convexUpdateStatus, allReports: convexAllReports } = useConvexData();
   const canManage = authUser?.role === 'super_admin' || authUser?.role === 'desk_incharge';
 
   const [localReports, setLocalReports] = useState(reports);
@@ -91,18 +92,16 @@ export function ReportsList({
     return localReports;
   }, [localReports, authUser]);
 
-  const updateReportStatus = (report: Report, newStatus: Report['status']) => {
+  const updateReportStatus = async (report: Report, newStatus: Report['status']) => {
     const now = new Date().toISOString().split('T')[0];
     const updates: Partial<Report> = newStatus === 'approved'
       ? { status: newStatus, lastUpdated: now, approvedBy: authUser?.name ?? '', approvedAt: now }
       : { status: newStatus, lastUpdated: now };
     setLocalReports(prev => prev.map((r: Report) => r.id === report.id ? { ...r, ...updates } : r));
-    const all = getReports();
-    const idx = all.findIndex(r => r.country === report.country && r.year === report.year);
-    if (idx >= 0) {
-      Object.assign(all[idx], updates);
-      saveReports(all);
-    }
+    await convexUpdateStatus(report.id, newStatus, newStatus === 'approved' ? {
+      approvedBy: authUser?.name ?? '',
+      approvedAt: now,
+    } : undefined);
   };
 
   const handleApprove = (report: Report) => {
@@ -138,17 +137,11 @@ export function ReportsList({
     onAllowUpdate?.(report);
   };
 
-  const handleDenyUpdate = (report: Report) => {
+  const handleDenyUpdate = async (report: Report) => {
     const reason = window.prompt('Reason for denying update request (optional):') ?? '';
-    const all = getReports();
-    const idx = all.findIndex(r => r.id === report.id);
-    if (idx >= 0) {
-      all[idx].status = 'approved';
-      all[idx].updateDeniedReason = reason;
-      all[idx].lastUpdated = new Date().toISOString().split('T')[0];
-      saveReports(all);
-    }
-    setLocalReports(prev => prev.map(r => r.id === report.id ? { ...r, status: 'approved' as const, lastUpdated: new Date().toISOString().split('T')[0] } : r));
+    const now = new Date().toISOString().split('T')[0];
+    setLocalReports(prev => prev.map(r => r.id === report.id ? { ...r, status: 'approved' as const, lastUpdated: now } : r));
+    await convexUpdateStatus(report.id, 'approved', { updateDeniedReason: reason });
     onDenyUpdate?.(report);
   };
 
@@ -651,11 +644,7 @@ export function ReportsList({
         <RevisionReviewModal
           report={{
             ...revisionReport,
-            data: (() => {
-              const all = getReports();
-              const found = all.find(r => r.id === revisionReport.id);
-              return found?.data ?? {};
-            })(),
+            data: convexAllReports.find(r => r.id === revisionReport.id)?.data ?? {},
           }}
           reviewerName={authUser?.name ?? 'Reviewer'}
           onClose={() => setRevisionReport(null)}

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { BookOpen, Filter, Download, Globe, Tag } from 'lucide-react';
 import { REPORT_FORM_SECTIONS } from '@/data/reportFormSchema';
-import { getReports } from '@/services/dataService';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 import { exportAccountsToWord } from '@/lib/exportAccounts';
 
 interface AccountEntry {
@@ -21,14 +21,14 @@ const FA_TOPICS = FA_SECTION?.fields.map(f => ({
 })) ?? [];
 
 export function FaithAccountsCompile() {
+  const { allReports: convexReports } = useConvexData();
   const [topicFilter, setTopicFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
 
   const allAccounts = useMemo<AccountEntry[]>(() => {
-    const reports = getReports() as { country: string; data: Record<string, string | number> }[];
     const entries: AccountEntry[] = [];
 
-    for (const report of reports) {
+    for (const report of convexReports) {
       if (!report.data) continue;
       for (const topic of FA_TOPICS) {
         const val = report.data[topic.code];
@@ -47,7 +47,7 @@ export function FaithAccountsCompile() {
     }
 
     return entries;
-  }, []);
+  }, [convexReports]);
 
   const countries = useMemo(() => {
     const set = new Set(allAccounts.map(a => a.country));

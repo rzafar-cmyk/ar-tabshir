@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Users, Search, Download, MapPin, GraduationCap, Phone, Mail, ChevronUp, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { getReports } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 
 interface MissionaryRecord {
   country: string;
@@ -18,15 +18,19 @@ interface MissionaryRecord {
 type SortKey = 'country' | 'name' | 'jamia' | 'gradYear' | 'posting';
 type SortDir = 'asc' | 'desc';
 
-function extractMissionaries(allowedCountries?: string[]): MissionaryRecord[] {
-  try {
-    const reports = getReports() as any[];
+export function MissionaryCompile() {
+  const { user } = useAuth();
+  const { allReports: convexReports } = useConvexData();
+  const allowedCountries = user?.role === 'desk_incharge' ? user.assignedCountries : undefined;
+
+  const allMissionaries = useMemo(() => {
     const missionaries: MissionaryRecord[] = [];
+    const reports = allowedCountries
+      ? convexReports.filter(r => allowedCountries.includes(r.country))
+      : convexReports;
 
     for (const report of reports) {
       if (!report.data) continue;
-      if (allowedCountries && !allowedCountries.includes(report.country)) continue;
-
       let i = 1;
       while (report.data[`cmd_name_${i}`]) {
         missionaries.push({
@@ -42,18 +46,8 @@ function extractMissionaries(allowedCountries?: string[]): MissionaryRecord[] {
         i++;
       }
     }
-
     return missionaries;
-  } catch {
-    return [];
-  }
-}
-
-export function MissionaryCompile() {
-  const { user } = useAuth();
-  const allowedCountries = user?.role === 'desk_incharge' ? user.assignedCountries : undefined;
-
-  const allMissionaries = useMemo(() => extractMissionaries(allowedCountries), [allowedCountries]);
+  }, [convexReports, allowedCountries]);
 
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('country');

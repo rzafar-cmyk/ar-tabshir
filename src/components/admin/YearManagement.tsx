@@ -4,13 +4,11 @@ import {
   formatFiscalYear,
   getAvailableFiscalYears,
   isYearOpen,
-  setYearStatus,
 } from '@/lib/fiscalYear';
-import { getReports } from '@/services/dataService';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 
 export function YearManagement() {
-  const [, setTick] = useState(0);
-  const refresh = () => setTick(t => t + 1);
+  const { allReports: convexReports, yearStatuses, setYearStatus } = useConvexData();
 
   const [confirmAction, setConfirmAction] = useState<{
     year: number;
@@ -19,28 +17,26 @@ export function YearManagement() {
 
   const currentFY = getCurrentFiscalYear();
   const nextFY = currentFY + 1;
-  const availableYears = getAvailableFiscalYears();
-  const allReports = getReports();
+  const availableYears = getAvailableFiscalYears(convexReports);
 
-  const currentOpen = isYearOpen(currentFY);
-  const currentReportCount = allReports.filter(r => r.year === currentFY).length;
+  const currentOpen = isYearOpen(currentFY, yearStatuses);
+  const currentReportCount = convexReports.filter(r => r.year === currentFY).length;
 
   // Previous years: everything in availableYears that is < currentFY, sorted desc
   const previousYears = availableYears.filter(y => y < currentFY);
 
   // Next year: only show if it's not already in available years as "current"
-  const nextYearOpen = isYearOpen(nextFY);
+  const nextYearOpen = isYearOpen(nextFY, yearStatuses);
   // Show next year row only if it hasn't been explicitly opened yet, OR it's already opened
   const nextYearExists = availableYears.includes(nextFY);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!confirmAction) return;
-    setYearStatus(confirmAction.year, confirmAction.action === 'open' ? 'open' : 'closed');
+    await setYearStatus(confirmAction.year, confirmAction.action === 'open' ? 'open' : 'closed');
     setConfirmAction(null);
-    refresh();
   };
 
-  const reportCount = (year: number) => allReports.filter(r => r.year === year).length;
+  const reportCount = (year: number) => convexReports.filter(r => r.year === year).length;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -91,7 +87,7 @@ export function YearManagement() {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Previous Years</p>
             <div className="space-y-1.5">
               {previousYears.map(year => {
-                const open = isYearOpen(year);
+                const open = isYearOpen(year, yearStatuses);
                 const count = reportCount(year);
                 return (
                   <div key={year} className="flex items-center gap-2 text-xs text-gray-600 py-1">

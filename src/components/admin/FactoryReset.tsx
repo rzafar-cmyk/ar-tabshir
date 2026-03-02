@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AlertTriangle, Trash2, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { factoryReset } from '@/services/dataService';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 
 interface FactoryResetProps {
   onDone: () => void;
@@ -11,16 +11,17 @@ type Step = 'warning' | 'confirm' | 'countdown' | 'done';
 
 export function FactoryReset({ onDone }: FactoryResetProps) {
   const { user } = useAuth();
+  const { factoryReset: doFactoryReset } = useConvexData();
   const [step, setStep] = useState<Step>('warning');
   const [confirmText, setConfirmText] = useState('');
   const [countdown, setCountdown] = useState(5);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const executeReset = useCallback(() => {
+  const executeReset = useCallback(async () => {
     if (!user) return;
-    factoryReset(user.id);
+    await doFactoryReset();
     setStep('done');
-  }, [user]);
+  }, [user, doFactoryReset]);
 
   // Countdown logic
   useEffect(() => {

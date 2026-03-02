@@ -8,6 +8,9 @@
  * @module
  */
 
+import type * as auditLog from "../auditLog.js";
+import type * as reports from "../reports.js";
+import type * as settings from "../settings.js";
 import type * as users from "../users.js";
 
 import type {
@@ -17,6 +20,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auditLog: typeof auditLog;
+  reports: typeof reports;
+  settings: typeof settings;
   users: typeof users;
 }>;
 

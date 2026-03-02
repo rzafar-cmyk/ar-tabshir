@@ -13,17 +13,8 @@ interface ReportRecord {
   data?: Record<string, string | number>;
 }
 
-function getReportsFromStorage(): ReportRecord[] {
-  try {
-    const stored = localStorage.getItem('ar_reports');
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function exportAllReportsToExcel(allowedCountries?: string[]) {
-  const allReports = getReportsFromStorage();
+export function exportAllReportsToExcel(allowedCountries?: string[], convexReports?: ReportRecord[]) {
+  const allReports = convexReports ?? [];
   let reports = allReports.filter(r => r.data && Object.keys(r.data).length > 0);
 
   if (allowedCountries) {

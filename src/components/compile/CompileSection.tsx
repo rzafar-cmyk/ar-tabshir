@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MissionaryCompile } from './MissionaryCompile';
 import { FaithAccountsCompile } from './FaithAccountsCompile';
 import { exportAllReportsToExcel, exportCompiledToExcel } from '@/lib/exportExcel';
-import { getReports } from '@/services/dataService';
+import { useConvexData } from '@/contexts/ConvexDataContext';
+import type { StoredReport } from '@/services/dataService';
 import type { MultiYearCompilationResult } from '@/lib/compile-types';
 import { buildColumnHeaders } from '@/lib/compile-types';
 import { getCurrentFiscalYear, getAvailableFiscalYears, formatFiscalYear } from '@/lib/fiscalYear';
@@ -40,13 +41,13 @@ function getReportVal(data: Record<string, string | number>, key: string): numbe
   return typeof v === 'number' ? v : Number(v) || 0;
 }
 
-// Generate multi-year compilation data from real localStorage reports
+// Generate multi-year compilation data from Convex reports
 function generateCompilationData(
   selectedFields: string[],
   filters: FilterState,
+  allReports: StoredReport[],
   allowedCountries?: string[]
 ): MultiYearCompilationResult {
-  const allReports = getReports();
 
   // Filter reports based on role, year, status, progress
   const filtered = allReports.filter(r => {
@@ -249,8 +250,9 @@ const DEFAULT_PRESETS: Preset[] = [
 
 export function CompileSection() {
   const { user: authUser } = useAuth();
+  const { allReports: convexReports } = useConvexData();
   const allowedCountries = authUser?.role === 'desk_incharge' ? authUser.assignedCountries : undefined;
-  const YEARS = getAvailableFiscalYears();
+  const YEARS = getAvailableFiscalYears(convexReports);
 
   const [selectedFields, setSelectedFields] = useState<string[]>([
     'b1_total_baits',
@@ -283,7 +285,7 @@ export function CompileSection() {
   const handleCompile = useCallback(() => {
     setIsCompiling(true);
     setTimeout(() => {
-      const data = generateCompilationData(selectedFields, filters, allowedCountries);
+      const data = generateCompilationData(selectedFields, filters, convexReports, allowedCountries);
       setResults(data);
       setIsCompiling(false);
       setCurrentPage(1);
@@ -319,7 +321,7 @@ export function CompileSection() {
     if (results) {
       exportCompiledToExcel(results);
     } else {
-      exportAllReportsToExcel(allowedCountries);
+      exportAllReportsToExcel(allowedCountries, convexReports);
     }
   }, [results, allowedCountries]);
 

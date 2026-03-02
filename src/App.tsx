@@ -26,8 +26,8 @@ import { DeadlineCountdown } from "./components/shared/DeadlineCountdown";
 import { useAuth } from "./contexts/AuthContext";
 import { getCurrentFiscalYear, formatFiscalYear } from "./lib/fiscalYear";
 import { getCountriesForRep, ALL_COUNTRIES } from "./data/countries";
-import { getReports, saveReports, getReportByCountryAndYear, getActiveReports, getArchivedReports, archiveReport, restoreReport, permanentlyDeleteReport, type StoredReport } from "./services/dataService";
-import { logAuditEvent } from "./lib/audit";
+import type { StoredReport } from "./services/dataService";
+import { useConvexData } from "./contexts/ConvexDataContext";
 import { isReportLocked } from "./lib/deadline";
 import { REPORT_FORM_SECTIONS } from "./data/reportFormSchema";
 import "./App.css";
@@ -41,7 +41,7 @@ function reportNum(data: Record<string, string | number>, longKey: string): numb
   return typeof v === 'number' ? v : Number(v) || 0;
 }
 
-/** Compute real dashboard summary stats from localStorage reports */
+/** Compute real dashboard summary stats from report data */
 function computeDashboardStats(reports: StoredReport[], assignedCountries?: string[]) {
   const currentFiscalYear = getCurrentFiscalYear();
   const filtered = assignedCountries
@@ -237,6 +237,7 @@ function NavItem({ icon, label, active, onClick, badge }: { icon: string; label:
 // Reports Section Component
 function ReportsSection({ onEditReport }: { onEditReport: (country: string, year: number) => void }) {
   const { user: authUser } = useAuth();
+  const { activeReports: convexActiveReports, archivedReports: convexArchivedReports, updateReportStatus, archiveReport: doArchive, restoreReport: doRestore, deleteReport: doDelete } = useConvexData();
   const [filters, setFilters] = useState<{
     status: string[];
     continent: string[];
@@ -249,13 +250,12 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
     progressRange: null,
   });
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
 
   const userRole: 'admin' | 'contributor' | 'viewer' =
     authUser?.role === 'super_admin' || authUser?.role === 'desk_incharge' ? 'admin' : 'viewer';
-  // Read real reports from localStorage
+  // Read reports from Convex (already role-filtered server-side)
   const storedToReport = (r: StoredReport): Report => ({
     id: r.id,
     country: r.country,
@@ -272,22 +272,9 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
     approvedAt: r.approvedAt,
   });
 
-  const liveReports: Report[] = (() => {
-    const allStored = getActiveReports();
-    const roleFiltered = authUser?.role === 'desk_incharge'
-      ? allStored.filter(r => (authUser.assignedCountries ?? []).includes(r.country))
-      : allStored; // super_admin sees all
-    return roleFiltered.map(storedToReport);
-  })();
+  const liveReports: Report[] = convexActiveReports.map(storedToReport);
 
-  const archivedReports: Report[] = (() => {
-    const allArchived = getArchivedReports();
-    const roleFiltered = authUser?.role === 'desk_incharge'
-      ? allArchived.filter(r => (authUser.assignedCountries ?? []).includes(r.country))
-      : allArchived;
-    return roleFiltered.map(storedToReport);
-  })();
-  void refreshKey; // ensure re-render on refreshKey change
+  const archivedReportsList: Report[] = convexArchivedReports.map(storedToReport);
 
   // Status cards count only the current fiscal year
   const currentYearReports = liveReports.filter(r => r.year === getCurrentFiscalYear());
@@ -318,89 +305,46 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
     });
   };
 
-  const handleApprove = (report: Report) => {
-    const all = getReports();
-    const idx = all.findIndex(r => r.id === report.id);
-    if (idx >= 0) {
-      const now = new Date().toISOString();
-      all[idx].status = 'approved';
-      all[idx].approvedAt = now;
-      all[idx].approvedBy = authUser?.name ?? 'Admin';
-      all[idx].lastUpdated = now;
-      saveReports(all);
-      logAuditEvent({ action: 'approved', country: report.country, user: authUser?.name ?? 'Admin', role: authUser?.role ?? 'super_admin', timestamp: now, details: `Report approved for ${report.country}` });
-      setRefreshKey(k => k + 1);
-      setSelectedReport(null);
-    }
-  };
-
-  const handleRequestRevision = (report: Report) => {
-    const all = getReports();
-    const idx = all.findIndex(r => r.id === report.id);
-    if (idx >= 0) {
-      const now = new Date().toISOString();
-      all[idx].status = 'revision_requested';
-      all[idx].lastUpdated = now;
-      saveReports(all);
-      logAuditEvent({ action: 'revision_requested', country: report.country, user: authUser?.name ?? 'Admin', role: authUser?.role ?? 'super_admin', timestamp: now, details: `Revision requested for ${report.country}` });
-      setRefreshKey(k => k + 1);
-      setSelectedReport(null);
-    }
-  };
-
-  const handleAllowUpdate = (report: Report) => {
-    const all = getReports();
-    const idx = all.findIndex(r => r.id === report.id);
-    if (idx >= 0) {
-      const now = new Date().toISOString();
-      all[idx].status = 'update_in_progress';
-      all[idx].lastUpdated = now;
-      saveReports(all);
-      logAuditEvent({ action: 'update_allowed', country: report.country, user: authUser?.name ?? 'Admin', role: authUser?.role ?? 'super_admin', timestamp: now, details: `Update allowed for ${report.country}` });
-      setRefreshKey(k => k + 1);
-      setSelectedReport(null);
-    }
-  };
-
-  const handleDenyUpdate = (report: Report) => {
-    const reason = window.prompt('Reason for denying update request (optional):') ?? '';
-    const all = getReports();
-    const idx = all.findIndex(r => r.id === report.id);
-    if (idx >= 0) {
-      const now = new Date().toISOString();
-      all[idx].status = 'approved';
-      all[idx].updateDeniedReason = reason;
-      all[idx].lastUpdated = now;
-      saveReports(all);
-      logAuditEvent({ action: 'update_denied', country: report.country, user: authUser?.name ?? 'Admin', role: authUser?.role ?? 'super_admin', timestamp: now, details: `Update denied for ${report.country}${reason ? ': ' + reason : ''}` });
-      setRefreshKey(k => k + 1);
-      setSelectedReport(null);
-    }
-  };
-
-  const handleArchiveReport = (report: Report) => {
-    if (!window.confirm(`Archive the report for ${report.country} (${report.year}-${report.year + 1})?\n\nThe report will be moved to the archive and can be restored later.\n\nNote: The Country Representative will be notified that this report has been deleted.`)) return;
-    const userId = authUser?.name ?? 'Admin';
-    archiveReport(report.id, userId);
+  const handleApprove = async (report: Report) => {
     const now = new Date().toISOString();
-    logAuditEvent({ action: 'report_archived', country: report.country, user: userId, role: authUser?.role ?? 'super_admin', timestamp: now, details: `Report archived for ${report.country} (${report.year})` });
-    setRefreshKey(k => k + 1);
+    await updateReportStatus(report.id, 'approved', {
+      approvedAt: now,
+      approvedBy: authUser?.name ?? 'Admin',
+    });
     setSelectedReport(null);
   };
 
-  const handleRestoreReport = (report: Report) => {
-    restoreReport(report.id);
-    const now = new Date().toISOString();
-    logAuditEvent({ action: 'report_restored', country: report.country, user: authUser?.name ?? 'Admin', role: authUser?.role ?? 'super_admin', timestamp: now, details: `Report restored for ${report.country} (${report.year})` });
-    setRefreshKey(k => k + 1);
+  const handleRequestRevision = async (report: Report) => {
+    await updateReportStatus(report.id, 'revision_requested');
+    setSelectedReport(null);
   };
 
-  const handlePermanentDeleteReport = (report: Report) => {
+  const handleAllowUpdate = async (report: Report) => {
+    await updateReportStatus(report.id, 'update_in_progress');
+    setSelectedReport(null);
+  };
+
+  const handleDenyUpdate = async (report: Report) => {
+    const reason = window.prompt('Reason for denying update request (optional):') ?? '';
+    await updateReportStatus(report.id, 'approved', {
+      updateDeniedReason: reason,
+    });
+    setSelectedReport(null);
+  };
+
+  const handleArchiveReport = async (report: Report) => {
+    if (!window.confirm(`Archive the report for ${report.country} (${report.year}-${report.year + 1})?\n\nThe report will be moved to the archive and can be restored later.\n\nNote: The Country Representative will be notified that this report has been deleted.`)) return;
+    await doArchive(report.id);
+    setSelectedReport(null);
+  };
+
+  const handleRestoreReport = async (report: Report) => {
+    await doRestore(report.id);
+  };
+
+  const handlePermanentDeleteReport = async (report: Report) => {
     if (!window.confirm(`PERMANENTLY delete the report for ${report.country} (${report.year})? This action CANNOT be undone.`)) return;
-    permanentlyDeleteReport(report.id);
-    const now = new Date().toISOString();
-    logAuditEvent({ action: 'report_deleted', country: report.country, user: authUser?.name ?? 'Admin', role: authUser?.role ?? 'super_admin', timestamp: now, details: `Report permanently deleted for ${report.country} (${report.year})` });
-    setRefreshKey(k => k + 1);
+    await doDelete(report.id);
   };
 
   return (
@@ -416,7 +360,7 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
             onClick={() => setShowArchived(prev => !prev)}
             className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg border transition-colors ${showArchived ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
           >
-            {showArchived ? '← Back to Active Reports' : `Archived (${archivedReports.length})`}
+            {showArchived ? '← Back to Active Reports' : `Archived (${archivedReportsList.length})`}
           </button>
         )}
       </div>
@@ -441,7 +385,7 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
         <div className="flex-1">
           {showArchived ? (
             <ReportsList
-              reports={archivedReports}
+              reports={archivedReportsList}
               onView={(report) => setSelectedReport(report)}
               onEdit={() => {}}
               onApprove={() => {}}
@@ -478,7 +422,7 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
           report={{
             ...selectedReport,
             data: (() => {
-              const stored = getReports().find(r => r.id === selectedReport.id);
+              const stored = convexActiveReports.find(r => r.id === selectedReport.id);
               return stored?.data ?? {};
             })(),
             comments: [],
@@ -501,41 +445,29 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
 }
 
 function MyReportTab({ repCountry, managedCountries, onCountryChange, onNavigateToDashboard }: { repCountry: string; managedCountries: string[]; onCountryChange: (c: string) => void; onNavigateToDashboard: () => void }) {
+  const { allReports, updateReportStatus, deadline } = useConvexData();
   const [showForm, setShowForm] = useState(false);
   const [showViewForm, setShowViewForm] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateReason, setUpdateReason] = useState('');
-  const [, setTick] = useState(0);
-
-  // Re-evaluate deadline when localStorage changes (e.g. admin resets deadline in another tab)
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === 'ar_deadline') setTick(t => t + 1);
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
 
   const fiscalYear = getCurrentFiscalYear();
-  const rawReport = getReportByCountryAndYear(repCountry, fiscalYear);
+  // Find report for this country+year from Convex data
+  const allForCountryYear = allReports.filter(r => r.country === repCountry && r.year === fiscalYear);
+  const rawReport = allForCountryYear.find(r => !r.archived) ?? allForCountryYear[0];
   const isArchivedByAdmin = rawReport?.archived === true;
   const existingReport = isArchivedByAdmin ? undefined : rawReport;
-  const locked = isReportLocked(fiscalYear);
+  const locked = isReportLocked(fiscalYear, deadline);
 
-  const handleRequestUpdate = () => {
+  const handleRequestUpdate = async () => {
     if (!updateReason.trim() || !existingReport) return;
-    const all = getReports();
-    const idx = all.findIndex(r => r.country === repCountry && r.year === fiscalYear);
-    if (idx >= 0) {
-      all[idx].status = 'update_requested';
-      all[idx].updateRequestReason = updateReason.trim();
-      all[idx].updateRequestedAt = new Date().toISOString();
-      all[idx].lastUpdated = new Date().toISOString();
-      saveReports(all);
-    }
+    const now = new Date().toISOString();
+    await updateReportStatus(existingReport.id, 'update_requested', {
+      updateRequestReason: updateReason.trim(),
+      updateRequestedAt: now,
+    });
     setShowUpdateModal(false);
     setUpdateReason('');
-    setTick(t => t + 1);
   };
 
   const status = existingReport?.status;
@@ -998,6 +930,7 @@ function resolveInitialTab(role?: string): string {
 
 function App() {
   const { user, logout } = useAuth();
+  const { activeReports: allStoredReports } = useConvexData();
 
   // User is loading from Convex — show nothing until ready
   if (!user) return null;
@@ -1009,21 +942,8 @@ function App() {
   const [selectedRepCountry, setSelectedRepCountry] = useState(primaryCountry);
   const repCountry = selectedRepCountry || primaryCountry;
 
-  // Count submitted reports awaiting review
-  const pendingReviewCount = (() => {
-    try {
-      const stored = localStorage.getItem('ar_reports');
-      if (!stored) return 0;
-      const allReports = JSON.parse(stored);
-      if (user?.role === 'desk_incharge') {
-        return allReports.filter((r: any) => r.status === 'submitted' && (user.assignedCountries ?? []).includes(r.country)).length;
-      }
-      if (user?.role === 'super_admin') {
-        return allReports.filter((r: any) => r.status === 'submitted').length;
-      }
-      return 0;
-    } catch { return 0; }
-  })();
+  // Count submitted reports awaiting review (from Convex data)
+  const pendingReviewCount = allStoredReports.filter(r => r.status === 'submitted').length;
 
   const [activeTab, setActiveTabRaw] = useState(() => resolveInitialTab(user?.role));
 
@@ -1083,7 +1003,7 @@ function App() {
   const dashboardSearchResults = useMemo(() => {
     if (!debouncedDashQuery || debouncedDashQuery.length < 2) return [];
     const q = debouncedDashQuery.toLowerCase();
-    const activeReports = getActiveReports();
+    const activeReports = allStoredReports;
     const results: { country: string; section: string; field: string; value: string | number; reportId: string; year: number }[] = [];
     for (const report of activeReports) {
       if (!report.data) continue;
@@ -1121,8 +1041,7 @@ function App() {
   const totalCountryCount = ALL_COUNTRIES.length;
   const countryCount = isDeskIncharge ? assignedCountryList.length : totalCountryCount;
 
-  // Compute real dashboard stats from localStorage (exclude archived)
-  const allStoredReports = getActiveReports();
+  // Compute real dashboard stats from Convex (already excludes archived)
   const dashStats = computeDashboardStats(allStoredReports, isDeskIncharge ? assignedCountryList : undefined);
   const filteredTopCountries = dashStats.topCountries;
   const filteredRecentReports = dashStats.recentReports;

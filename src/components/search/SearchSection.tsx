@@ -3,8 +3,8 @@ import { Search, ChevronDown, ChevronRight, Download, X, ArrowUpDown, ArrowUp, A
 import { REPORT_FORM_SECTIONS } from '@/data/reportFormSchema';
 import type { FormField } from '@/data/reportFormSchema';
 import { ALL_COUNTRIES } from '@/data/countries';
-import { getReports, type StoredReport } from '@/services/dataService';
-import { useAuth } from '@/contexts/AuthContext';
+import type { StoredReport } from '@/services/dataService';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 import { getCurrentFiscalYear, getAvailableFiscalYears, formatFiscalYear } from '@/lib/fiscalYear';
 
 // ── Types ──
@@ -147,19 +147,10 @@ function SortHeader({ label, sortKey, currentSort, onSort }: {
 // ══════════════════════════════════════════════════════════
 
 export function SearchSection() {
-  const { user: authUser } = useAuth();
+  const { allReports: convexReports } = useConvexData();
 
-  // Role-based filter: get all reports visible to this user
-  const reports = useMemo<StoredReport[]>(() => {
-    const all = getReports();
-    if (authUser?.role === 'desk_incharge' && authUser.assignedCountries) {
-      return all.filter(r => authUser.assignedCountries!.includes(r.country));
-    }
-    if (authUser?.role === 'country_rep' && authUser.assignedCountries) {
-      return all.filter(r => authUser.assignedCountries!.includes(r.country));
-    }
-    return all;
-  }, [authUser]);
+  // Reports are already role-filtered by Convex server-side
+  const reports = convexReports;
 
   // ── Quick Search State ──
   const [quickQuery, setQuickQuery] = useState('');
@@ -638,7 +629,7 @@ export function SearchSection() {
                   onChange={(e) => setAdvYear(Number(e.target.value))}
                   className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none bg-white"
                 >
-                  {getAvailableFiscalYears().map(y => (
+                  {getAvailableFiscalYears(convexReports).map(y => (
                     <option key={y} value={y}>{formatFiscalYear(y)}</option>
                   ))}
                 </select>

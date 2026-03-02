@@ -1,11 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ALL_COUNTRIES } from '@/data/countries';
 import { getUsers, resetPassword, assignCountries } from '@/services/userService';
-import { getReports, getActiveReports, saveReports as saveAllReports } from '@/services/dataService';
 import type { StoredUser } from '@/services/dataService';
 import { ChevronDown, ChevronRight, Key, MapPin, Users, X, FileText, Clock, CheckCircle2, AlertTriangle, Eye, Send } from 'lucide-react';
-import { logAuditEvent } from '@/lib/audit';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 import { getCurrentFiscalYear, formatFiscalYear } from '@/lib/fiscalYear';
 import { ReportDetailModal } from '@/components/reports/ReportDetailModal';
 
@@ -39,29 +38,19 @@ interface ReportRecord {
 
 export function DeskInchargeDashboard() {
   const { user } = useAuth();
+  const { activeReports: convexActiveReports, updateReportStatus } = useConvexData();
   const assigned = user?.assignedCountries ?? [];
 
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  // Auto-refresh reports from localStorage
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRefreshKey(k => k + 1);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // ── Reports for assigned countries ──
+  // ── Reports for assigned countries (Convex data is reactive, auto-updates) ──
   const currentFY = getCurrentFiscalYear();
   const { pendingReports, allMyReports } = useMemo(() => {
-    const allReports = getActiveReports() as ReportRecord[];
     const assignedSet = new Set(assigned);
-    const currentYearReports = allReports.filter(r => assignedSet.has(r.country) && r.year === currentFY);
+    const currentYearReports = (convexActiveReports as ReportRecord[]).filter(r => assignedSet.has(r.country) && r.year === currentFY);
     return {
       pendingReports: currentYearReports.filter(r => r.status === 'submitted'),
       allMyReports: currentYearReports,
     };
-  }, [assigned, refreshKey, currentFY]);
+  }, [assigned, currentFY, convexActiveReports]);
 
   // ── View report state ──
   const [viewingReport, setViewingReport] = useState<ReportRecord | null>(null);
@@ -484,45 +473,17 @@ export function DeskInchargeDashboard() {
           userRole="admin"
           onClose={() => setViewingReport(null)}
           onEdit={() => setViewingReport(null)}
-          onApprove={() => {
-            const reports = getReports() as ReportRecord[];
-            const idx = reports.findIndex(r => r.id === viewingReport.id);
-            if (idx >= 0) {
-              (reports[idx] as any).status = 'approved';
-              (reports[idx] as any).approvedAt = new Date().toISOString();
-              (reports[idx] as any).approvedBy = user?.name || 'desk_incharge';
-              (reports[idx] as any).lastUpdated = new Date().toISOString();
-              saveAllReports(reports as any);
-              logAuditEvent({
-                action: 'approved',
-                country: viewingReport.country,
-                user: user?.name || 'desk_incharge',
-                role: 'desk_incharge',
-                timestamp: new Date().toISOString(),
-                details: `Report approved for ${viewingReport.country}`,
-              });
-            }
+          onApprove={async () => {
+            const now = new Date().toISOString();
+            await updateReportStatus(viewingReport.id, 'approved', {
+              approvedAt: now,
+              approvedBy: user?.name || 'desk_incharge',
+            });
             setViewingReport(null);
-            setRefreshKey(k => k + 1);
           }}
-          onRequestRevision={() => {
-            const reports = getReports() as ReportRecord[];
-            const idx = reports.findIndex(r => r.id === viewingReport.id);
-            if (idx >= 0) {
-              (reports[idx] as any).status = 'revision_requested';
-              (reports[idx] as any).lastUpdated = new Date().toISOString();
-              saveAllReports(reports as any);
-              logAuditEvent({
-                action: 'revision_requested',
-                country: viewingReport.country,
-                user: user?.name || 'desk_incharge',
-                role: 'desk_incharge',
-                timestamp: new Date().toISOString(),
-                details: `Revision requested for ${viewingReport.country}`,
-              });
-            }
+          onRequestRevision={async () => {
+            await updateReportStatus(viewingReport.id, 'revision_requested');
             setViewingReport(null);
-            setRefreshKey(k => k + 1);
           }}
         />
       )}

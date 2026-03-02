@@ -3,9 +3,8 @@ import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, X, ChevronRight, C
 import * as XLSX from 'xlsx';
 import { FIELD_MAP } from '@/lib/field-map';
 import { ALL_COUNTRIES, getContinentForCountry } from '@/data/countries';
-import { getReports, saveReports, generateId } from '@/services/dataService';
 import { useAuth } from '@/contexts/AuthContext';
-import { logAuditEvent } from '@/lib/audit';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 
 type ImportStep = 'upload' | 'preview' | 'import' | 'done';
 
@@ -73,6 +72,7 @@ for (const f of FIELD_MAP) {
 
 export function ImportHistoricalData({ onDone }: { onDone: () => void }) {
   const { user } = useAuth();
+  const { importReports, logAuditEvent } = useConvexData();
   const [step, setStep] = useState<ImportStep>('upload');
   const [fileName, setFileName] = useState('');
   const [importYear, setImportYear] = useState(2024);
@@ -192,69 +192,55 @@ export function ImportHistoricalData({ onDone }: { onDone: () => void }) {
     }
   }, [handleFile]);
 
-  const handleImport = () => {
-    const allReports = getReports();
-    let imported = 0;
-    let skipped = 0;
+  const handleImport = async () => {
     const errors: string[] = [];
-
-    for (const row of parsedRows) {
+    const matchedRows = parsedRows.filter(row => {
       if (!row.matched) {
         errors.push(`Skipped "${row.country}" — no matching country found`);
-        skipped++;
-        continue;
+        return false;
       }
+      return true;
+    });
+    const skipped = parsedRows.length - matchedRows.length;
 
-      const existing = allReports.find(r => r.country === row.country && r.year === row.year);
-      if (existing && !overwriteExisting) {
-        skipped++;
-        continue;
-      }
-
+    const reportsToImport = matchedRows.map(row => {
       const countryConfig = ALL_COUNTRIES.find(c => c.name === row.country);
       const continent = getContinentForCountry(row.country);
       const countryCode = row.country.substring(0, 2).toUpperCase();
-
-      if (existing && overwriteExisting) {
-        // Merge data into existing
-        existing.data = { ...existing.data, ...row.data };
-        existing.lastUpdated = new Date().toISOString();
-        imported++;
-      } else {
-        allReports.push({
-          id: `IMP-${generateId()}`,
-          country: row.country,
-          countryCode,
-          flag: '',
-          continent: continent || countryConfig?.continent || 'Other',
-          year: row.year,
-          status: 'approved',
-          progress: 100,
-          lastUpdated: new Date().toISOString(),
-          submittedBy: 'Historical Import',
-          submittedByUserId: user?.id || 'system',
-          submittedAt: new Date().toISOString(),
-          approvedBy: 'System (Historical)',
-          approvedAt: new Date().toISOString(),
-          data: row.data,
-        });
-        imported++;
-      }
-    }
-
-    saveReports(allReports);
-
-    logAuditEvent({
-      action: 'import_historical',
-      country: 'Global',
-      user: user?.name || 'System',
-      role: user?.role ?? 'super_admin',
-      timestamp: new Date().toISOString(),
-      details: `Imported ${imported} reports for year ${importYear} from ${fileName}. Skipped: ${skipped}.`,
+      const now = new Date().toISOString();
+      return {
+        country: row.country,
+        countryCode,
+        flag: '',
+        continent: continent || countryConfig?.continent || 'Other',
+        year: row.year,
+        status: 'approved',
+        progress: 100,
+        data: row.data as Record<string, string | number>,
+        submittedBy: 'Historical Import',
+        submittedByUserId: user?.id || 'system',
+        submittedAt: now,
+        approvedBy: 'System (Historical)',
+        approvedAt: now,
+        lastUpdated: now,
+      };
     });
 
-    setImportResult({ imported, skipped, errors });
-    setStep('done');
+    try {
+      const result = await importReports(reportsToImport);
+      const imported = result.created + result.updated;
+
+      await logAuditEvent({
+        action: 'import_historical',
+        country: 'Global',
+        details: `Imported ${imported} reports for year ${importYear} from ${fileName}. Skipped: ${skipped}.`,
+      });
+
+      setImportResult({ imported, skipped, errors });
+      setStep('done');
+    } catch (err) {
+      alert('Import failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
   };
 
   const matchedCount = parsedRows.filter(r => r.matched).length;

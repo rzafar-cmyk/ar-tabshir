@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import { X, Flag, Send } from 'lucide-react';
 import { getFieldsBySection, resolveFieldValue, type FieldDefinition } from '@/lib/field-map';
 import { REPORT_FORM_SECTIONS } from '@/data/reportFormSchema';
-import { getReports, saveReports, type RevisionFlag } from '@/services/dataService';
+import { useConvexData } from '@/contexts/ConvexDataContext';
+import type { RevisionFlag } from '@/services/dataService';
 
 // Build a lookup: excel_code → formula string (from schema)
 const FORMULA_MAP: Record<string, string> = {};
@@ -69,6 +70,7 @@ export function RevisionReviewModal({
   onClose,
   onRevisionSent,
 }: RevisionReviewModalProps) {
+  const { updateReportStatus } = useConvexData();
   const sections = getFieldsBySection();
   const [flagged, setFlagged] = useState<Map<string, string>>(new Map());
   const [toast, setToast] = useState(false);
@@ -89,7 +91,7 @@ export function RevisionReviewModal({
     setFlagged(prev => new Map(prev).set(column, note));
   }, []);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const now = new Date().toISOString().split('T')[0];
     const revisionFlags: RevisionFlag[] = Array.from(flagged.entries()).map(
       ([fieldCode, note]) => ({
@@ -100,17 +102,9 @@ export function RevisionReviewModal({
       }),
     );
 
-    // Persist to localStorage
-    const all = getReports();
-    const idx = all.findIndex(
-      r => r.country === report.country && r.year === report.year,
-    );
-    if (idx >= 0) {
-      all[idx].status = 'revision_requested';
-      all[idx].lastUpdated = now;
-      all[idx].revisionFlags = revisionFlags;
-      saveReports(all);
-    }
+    await updateReportStatus(report.id, 'revision_requested', {
+      revisionFlags,
+    });
 
     setToast(true);
     setTimeout(() => {

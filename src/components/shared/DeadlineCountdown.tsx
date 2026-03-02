@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Clock, AlertTriangle } from 'lucide-react';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 
 interface DeadlineCountdownProps {
   compact?: boolean;
-}
-
-function getDeadline(): string | null {
-  return localStorage.getItem('ar_deadline');
 }
 
 function getTimeRemaining(deadline: string) {
@@ -24,25 +21,16 @@ function getTimeRemaining(deadline: string) {
 }
 
 export function DeadlineCountdown({ compact = false }: DeadlineCountdownProps) {
-  const [deadline, setDeadline] = useState<string | null>(getDeadline());
+  const { deadline } = useConvexData();
   const [timeLeft, setTimeLeft] = useState(deadline ? getTimeRemaining(deadline) : null);
 
+  // Update countdown every minute
   useEffect(() => {
-    // Re-read deadline from localStorage periodically (in case admin changes it)
-    const checkDeadline = () => {
-      const d = getDeadline();
-      setDeadline(d);
-      if (d) setTimeLeft(getTimeRemaining(d));
-    };
-
-    checkDeadline();
-    const interval = setInterval(checkDeadline, 60000); // update every minute
-    return () => clearInterval(interval);
-  }, []);
-
-  // Also update the countdown every minute
-  useEffect(() => {
-    if (!deadline) return;
+    if (!deadline) {
+      setTimeLeft(null);
+      return;
+    }
+    setTimeLeft(getTimeRemaining(deadline));
     const interval = setInterval(() => {
       setTimeLeft(getTimeRemaining(deadline));
     }, 60000);
@@ -62,7 +50,6 @@ export function DeadlineCountdown({ compact = false }: DeadlineCountdownProps) {
   const isWarning = !timeLeft.expired && timeLeft.days <= 30 && timeLeft.days > 7;
 
   if (compact) {
-    // Compact version for sidebar or small spaces
     return (
       <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${
         timeLeft.expired
@@ -83,7 +70,7 @@ export function DeadlineCountdown({ compact = false }: DeadlineCountdownProps) {
     );
   }
 
-  // Full banner — slim single-line bar
+  // Full banner
   if (timeLeft.expired) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 flex items-center gap-2">
@@ -115,23 +102,25 @@ export function DeadlineCountdown({ compact = false }: DeadlineCountdownProps) {
   );
 }
 
-// Admin component for setting the deadline — compact single-line bar
+// Admin component for setting the deadline
 export function DeadlineSettings() {
-  const [deadline, setDeadline] = useState(localStorage.getItem('ar_deadline') || '');
+  const { deadline: convexDeadline, setDeadline: setConvexDeadline } = useConvexData();
+  const [deadline, setDeadline] = useState(convexDeadline || '');
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    if (deadline) {
-      localStorage.setItem('ar_deadline', deadline);
-    } else {
-      localStorage.removeItem('ar_deadline');
-    }
+  // Sync local state when Convex data changes
+  useEffect(() => {
+    setDeadline(convexDeadline || '');
+  }, [convexDeadline]);
+
+  const handleSave = async () => {
+    await setConvexDeadline(deadline || null);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleClear = () => {
-    localStorage.removeItem('ar_deadline');
+  const handleClear = async () => {
+    await setConvexDeadline(null);
     setDeadline('');
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

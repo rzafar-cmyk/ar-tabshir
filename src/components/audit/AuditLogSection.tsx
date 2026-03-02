@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { History, Search, Filter, Download, CheckCircle, XCircle, Edit3, Plus, Trash2, RefreshCw, Calendar, Clock, ChevronDown, ChevronRight, ArrowRight, Send, ShieldCheck, ShieldX, ArchiveRestore, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAuditEvents } from '@/lib/audit';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 import type { AuditEvent, FieldChange } from '@/lib/audit';
 
 // ── Role display helpers ──
@@ -49,6 +49,7 @@ function formatTimestamp(ts: string): string {
 // ── Component ──
 
 export function AuditLogSection() {
+  const { auditEvents: convexAuditEvents } = useConvexData();
   const { user } = useAuth();
   const currentUserRole = user?.role ?? 'country_rep';
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,8 +60,8 @@ export function AuditLogSection() {
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [showAllChanges, setShowAllChanges] = useState<Set<string>>(new Set());
 
-  // Read real audit events from localStorage
-  const rawEvents = useMemo(() => getAuditEvents(), []);
+  // Read audit events from Convex (already role-filtered server-side)
+  const rawEvents = convexAuditEvents;
 
   // Build unique user and country lists for filters
   const { uniqueUsers, uniqueCountries } = useMemo(() => {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getReportsByCountry } from '@/services/dataService';
+import { useConvexData } from '@/contexts/ConvexDataContext';
 import { DeadlineCountdown } from '@/components/shared/DeadlineCountdown';
 import type { StoredReport } from '@/services/dataService';
 import { getCurrentFiscalYear, formatFiscalYear } from '@/lib/fiscalYear';
@@ -45,18 +45,19 @@ interface CountryDashboardProps {
 
 export function CountryDashboard({ onNavigateToReport, selectedCountry, managedCountries, onCountryChange }: CountryDashboardProps) {
   const { user } = useAuth();
+  const { allReports: convexReports } = useConvexData();
   const country = selectedCountry ?? user?.assignedCountries?.[0] ?? '';
   const countries = managedCountries ?? user?.assignedCountries ?? [];
 
   const currentYear = getCurrentFiscalYear();
   const { reportCurrent, reportPrev, reportPrevPrev } = useMemo(() => {
-    const reports = getReportsByCountry(country);
+    const reports = convexReports.filter(r => r.country === country);
     return {
       reportCurrent: reports.find(r => r.year === currentYear),
       reportPrev: reports.find(r => r.year === currentYear - 1),
       reportPrevPrev: reports.find(r => r.year === currentYear - 2),
     };
-  }, [country, currentYear]);
+  }, [country, currentYear, convexReports]);
 
   const currentStatus = reportCurrent?.status ?? 'draft';
   const currentProgress = reportCurrent?.progress ?? 0;
