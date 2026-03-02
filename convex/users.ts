@@ -43,6 +43,22 @@ export const createOrUpdateUser = mutation({
       return existing._id;
     }
 
+    // Check if a user was pre-created by admin (matched by email, no clerkId yet)
+    const preCreated = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (preCreated) {
+      // Link the Clerk ID to the pre-created user
+      await ctx.db.patch(preCreated._id, {
+        clerkId: args.clerkId,
+        name: args.name,
+        lastLogin: Date.now(),
+      });
+      return preCreated._id;
+    }
+
     // New user — default role is country_rep (safest)
     return await ctx.db.insert("users", {
       clerkId: args.clerkId,
@@ -165,6 +181,80 @@ export const updateUser = mutation({
     if (args.isActive !== undefined) updates.isActive = args.isActive;
 
     await ctx.db.patch(args.userId, updates);
+  },
+});
+
+/** Manually create a user (super_admin only).
+ *  Used when admin wants to pre-create a user before they sign in via Clerk.
+ *  When the user later signs in, createOrUpdateUser will match by email and link the Clerk ID. */
+export const createUser = mutation({
+  args: {
+    callerClerkId: v.string(),
+    name: v.string(),
+    email: v.string(),
+    role: v.union(
+      v.literal("super_admin"),
+      v.literal("desk_incharge"),
+      v.literal("country_rep")
+    ),
+    assignedCountries: v.optional(v.array(v.string())),
+    assignedDesk: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Verify caller is super_admin
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.callerClerkId))
+      .first();
+    if (!caller || caller.role !== "super_admin") {
+      throw new Error("Only super_admin can create users.");
+    }
+
+    // Check if email already exists
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+    if (existing) {
+      throw new Error("A user with this email already exists.");
+    }
+
+    return await ctx.db.insert("users", {
+      clerkId: "",
+      name: args.name,
+      email: args.email,
+      role: args.role,
+      assignedCountries: args.assignedCountries ?? [],
+      assignedDesk: args.assignedDesk,
+      isActive: true,
+      createdAt: Date.now(),
+      lastLogin: 0,
+    });
+  },
+});
+
+/** Assign countries to a user (super_admin or desk_incharge). */
+export const assignCountriesToUser = mutation({
+  args: {
+    userId: v.id("users"),
+    callerClerkId: v.string(),
+    assignedCountries: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.callerClerkId))
+      .first();
+    if (!caller || (caller.role !== "super_admin" && caller.role !== "desk_incharge")) {
+      throw new Error("Only super_admin or desk_incharge can assign countries.");
+    }
+
+    const target = await ctx.db.get(args.userId);
+    if (!target) throw new Error("User not found.");
+
+    await ctx.db.patch(args.userId, {
+      assignedCountries: args.assignedCountries,
+    });
   },
 });
 

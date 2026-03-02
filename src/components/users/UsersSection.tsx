@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Users, Search, MoreHorizontal, Edit2, Trash2, Shield, MapPin, Building2, CheckCircle, XCircle, Mail } from 'lucide-react';
+import { Users, Search, MoreHorizontal, Edit2, Trash2, Shield, MapPin, Building2, CheckCircle, XCircle, Mail, UserPlus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
-import { UserFormModal, DeleteConfirmModal } from './UserModals';
+import { UserFormModal, AddUserModal, DeleteConfirmModal } from './UserModals';
 import type { ConvexUserRecord } from './UserModals';
 
 const roleConfig = {
@@ -24,6 +24,7 @@ export function UsersSection() {
   const convexUsers = useQuery(api.users.getAllUsers) ?? [];
 
   // Mutations
+  const createUserMut = useMutation(api.users.createUser);
   const updateUserMut = useMutation(api.users.updateUser);
   const deleteUserMut = useMutation(api.users.deleteUser);
 
@@ -48,6 +49,7 @@ export function UsersSection() {
   // Modal states
   const [selectedUser, setSelectedUser] = useState<ConvexUserRecord | null>(null);
   const [editingUser, setEditingUser] = useState<ConvexUserRecord | null>(null);
+  const [showAddUser, setShowAddUser] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   // Toast
@@ -77,6 +79,26 @@ export function UsersSection() {
     setEditingUser(null);
     setToast(`User "${editingUser.name}" updated successfully.`);
   }, [editingUser, clerkId, updateUserMut]);
+
+  // Create handler
+  const handleCreateUser = useCallback(async (data: {
+    name: string;
+    email: string;
+    role: ConvexUserRecord['role'];
+    assignedCountries?: string[];
+    assignedDesk?: string;
+  }) => {
+    await createUserMut({
+      callerClerkId: clerkId,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      assignedCountries: data.assignedCountries,
+      assignedDesk: data.assignedDesk,
+    });
+    setShowAddUser(false);
+    setToast(`User "${data.name}" created successfully.`);
+  }, [clerkId, createUserMut]);
 
   // Delete handler
   const handleDeleteUser = useCallback(async () => {
@@ -126,6 +148,15 @@ export function UsersSection() {
           </h2>
           <p className="text-sm text-gray-500">Manage users, roles, and country assignments</p>
         </div>
+        {currentUserRole === 'super_admin' && (
+          <button
+            onClick={() => setShowAddUser(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add User
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -276,6 +307,13 @@ export function UsersSection() {
           {toast}
         </div>
       )}
+
+      {/* Add User Modal */}
+      <AddUserModal
+        isOpen={showAddUser}
+        onClose={() => setShowAddUser(false)}
+        onSave={handleCreateUser}
+      />
 
       {/* Edit User Modal */}
       <UserFormModal

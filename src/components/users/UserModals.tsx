@@ -254,7 +254,245 @@ export function UserFormModal({ isOpen, onClose, onSave, editingUser }: UserForm
 }
 
 // ═══════════════════════════════════════════════════════════
-// 2. DeleteConfirmModal
+// 2. AddUserModal — Create a new user manually
+// ═══════════════════════════════════════════════════════════
+
+interface AddUserModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: {
+    name: string;
+    email: string;
+    role: Role;
+    assignedCountries?: string[];
+    assignedDesk?: string;
+  }) => void | Promise<void>;
+}
+
+export function AddUserModal({ isOpen, onClose, onSave }: AddUserModalProps) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<Role>('country_rep');
+  const [selectedCountry, setSelectedCountry] = useState('');
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [assignedDesk, setAssignedDesk] = useState('');
+  const [error, setError] = useState('');
+  const [countrySearch, setCountrySearch] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName('');
+    setEmail('');
+    setRole('country_rep');
+    setSelectedCountry('');
+    setSelectedCountries([]);
+    setAssignedDesk('');
+    setError('');
+    setCountrySearch('');
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const toggleCountry = (c: string) => {
+    setSelectedCountries(prev =>
+      prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c],
+    );
+  };
+
+  const filteredCountries = countrySearch
+    ? ALL_COUNTRIES.filter(c => c.toLowerCase().includes(countrySearch.toLowerCase()))
+    : ALL_COUNTRIES;
+
+  const handleSubmit = async () => {
+    setError('');
+    if (!name.trim()) { setError('Name is required.'); return; }
+    if (!email.trim() || !email.includes('@')) { setError('A valid email is required.'); return; }
+    if (role === 'country_rep' && !selectedCountry) { setError('Please select a country.'); return; }
+    if (role === 'desk_incharge' && selectedCountries.length === 0) { setError('Please select at least one country.'); return; }
+
+    const countries = role === 'country_rep'
+      ? (selectedCountries.length > 0 ? selectedCountries : [selectedCountry])
+      : role === 'desk_incharge'
+        ? selectedCountries
+        : [];
+
+    try {
+      await onSave({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        role,
+        assignedCountries: countries,
+        assignedDesk: role === 'desk_incharge' ? (assignedDesk.trim() || undefined) : undefined,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'An error occurred.');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800">Add New User</h3>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4 overflow-y-auto">
+          {error && (
+            <div className="px-3 py-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
+            The user will be pre-created. When they sign in via Clerk with this email, their account will be automatically linked.
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
+              placeholder="Enter full name"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
+              placeholder="user@example.com"
+            />
+          </div>
+
+          {/* Role */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <select
+              value={role}
+              onChange={e => {
+                const r = e.target.value as Role;
+                setRole(r);
+                setSelectedCountry('');
+                setSelectedCountries([]);
+                setAssignedDesk('');
+              }}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+            >
+              <option value="country_rep">Country Rep</option>
+              <option value="desk_incharge">Desk In-charge</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
+          </div>
+
+          {/* Country Rep → primary country */}
+          {role === 'country_rep' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Primary Country</label>
+                <select
+                  value={selectedCountry}
+                  onChange={e => {
+                    const c = e.target.value;
+                    setSelectedCountry(c);
+                    if (c) setSelectedCountries(getCountriesForRep(c));
+                    else setSelectedCountries([]);
+                  }}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+                >
+                  <option value="">Select a country...</option>
+                  {ALL_COUNTRIES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              {selectedCountry && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Managed Countries <span className="font-normal text-gray-400">({selectedCountries.length})</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={countrySearch}
+                    onChange={e => setCountrySearch(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none mb-2"
+                    placeholder="Search countries..."
+                  />
+                  <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                    {filteredCountries.map(c => (
+                      <label key={c} className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" checked={selectedCountries.includes(c)} onChange={() => toggleCountry(c)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                        {c}
+                        {c === selectedCountry && <span className="text-[10px] text-blue-500 font-medium ml-auto">PRIMARY</span>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Desk In-charge */}
+          {role === 'desk_incharge' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Desk Name</label>
+                <input
+                  type="text"
+                  value={assignedDesk}
+                  onChange={e => setAssignedDesk(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
+                  placeholder="e.g. Africa Desk"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assigned Countries <span className="font-normal text-gray-400">({selectedCountries.length})</span>
+                </label>
+                <input
+                  type="text"
+                  value={countrySearch}
+                  onChange={e => setCountrySearch(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none mb-2"
+                  placeholder="Search countries..."
+                />
+                <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                  {filteredCountries.map(c => (
+                    <label key={c} className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                      <input type="checkbox" checked={selectedCountries.includes(c)} onChange={() => toggleCountry(c)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                      {c}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+            Cancel
+          </button>
+          <button onClick={handleSubmit} className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+            Add User
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// 3. DeleteConfirmModal
 // ═══════════════════════════════════════════════════════════
 
 interface DeleteConfirmModalProps {

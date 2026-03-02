@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ALL_COUNTRIES } from '@/data/countries';
-import { getUsers, resetPassword, assignCountries } from '@/services/userService';
-import type { StoredUser } from '@/services/dataService';
-import { ChevronDown, ChevronRight, Key, MapPin, Users, X, FileText, Clock, CheckCircle2, AlertTriangle, Eye, Send } from 'lucide-react';
+import { ChevronDown, ChevronRight, MapPin, Users, X, FileText, Clock, CheckCircle2, AlertTriangle, Eye, Send } from 'lucide-react';
 import { useConvexData } from '@/contexts/ConvexDataContext';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
+import { useUser } from '@clerk/clerk-react';
 import { getCurrentFiscalYear, formatFiscalYear } from '@/lib/fiscalYear';
 import { ReportDetailModal } from '@/components/reports/ReportDetailModal';
 
@@ -38,7 +40,10 @@ interface ReportRecord {
 
 export function DeskInchargeDashboard() {
   const { user } = useAuth();
+  const { user: clerkUser } = useUser();
   const { activeReports: convexActiveReports, updateReportStatus } = useConvexData();
+  const convexUsers = useQuery(api.users.getAllUsers) ?? [];
+  const assignCountriesMut = useMutation(api.users.assignCountriesToUser);
   const assigned = user?.assignedCountries ?? [];
 
   // ── Reports for assigned countries (Convex data is reactive, auto-updates) ──
@@ -88,37 +93,24 @@ export function DeskInchargeDashboard() {
     return { groups, independents };
   }, [assigned]);
 
-  // ── Country reps for assigned countries ──
+  // ── Country reps for assigned countries (from Convex) ──
   const countryReps = useMemo(() => {
-    const allUsers = getUsers();
     const assignedSet = new Set(assigned);
-    return allUsers.filter(
-      (u) =>
-        u.role === 'country_rep' &&
-        u.assignedCountries?.some((c) => assignedSet.has(c)),
-    );
-  }, [assigned]);
-
-  // ── State for password reset dialog ──
-  const [resetTarget, setResetTarget] = useState<StoredUser | null>(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [resetError, setResetError] = useState('');
-  const [resetSuccess, setResetSuccess] = useState('');
-
-  const handleResetPassword = async () => {
-    if (!resetTarget) return;
-    const result = await resetPassword(resetTarget.id, newPassword);
-    if (result.success) {
-      setResetSuccess(`Password reset for ${resetTarget.name}.`);
-      setNewPassword('');
-      setTimeout(() => {
-        setResetTarget(null);
-        setResetSuccess('');
-      }, 1500);
-    } else {
-      setResetError(result.error);
-    }
-  };
+    return convexUsers
+      .filter(
+        (u) =>
+          u.role === 'country_rep' &&
+          u.assignedCountries?.some((c: string) => assignedSet.has(c)),
+      )
+      .map(u => ({
+        id: u._id as string,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        assignedCountries: u.assignedCountries,
+        isActive: u.isActive,
+      }));
+  }, [assigned, convexUsers]);
 
   // ── State for assign countries modal ──
   const [assignParent, setAssignParent] = useState<string | null>(null);
@@ -134,22 +126,25 @@ export function DeskInchargeDashboard() {
     setAssignParent(parentCountry);
   };
 
-  const handleAssignSave = () => {
+  const handleAssignSave = useCallback(async () => {
     if (!assignParent) return;
-    const allUsers = getUsers();
-    const rep = allUsers.find(
+    const rep = convexUsers.find(
       (u) =>
         u.role === 'country_rep' &&
         u.assignedCountries?.includes(assignParent),
     );
     if (rep) {
-      const newCountries = [assignParent, ...assignSelection];
-      assignCountries(rep.id, Array.from(newCountries));
+      const newCountries = [assignParent, ...Array.from(assignSelection)];
+      await assignCountriesMut({
+        userId: rep._id as Id<"users">,
+        callerClerkId: clerkUser?.id ?? '',
+        assignedCountries: newCountries,
+      });
       setAssignToast(`Updated sub-countries for ${assignParent}.`);
       setTimeout(() => setAssignToast(''), 2500);
     }
     setAssignParent(null);
-  };
+  }, [assignParent, assignSelection, convexUsers, assignCountriesMut, clerkUser]);
 
   const candidateSubCountries = useMemo(() => {
     if (!assignParent) return [];
@@ -429,25 +424,13 @@ export function DeskInchargeDashboard() {
                 </div>
                 <span
                   className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    rep.status === 'active'
+                    rep.isActive
                       ? 'bg-emerald-50 text-emerald-700'
                       : 'bg-gray-100 text-gray-500'
                   }`}
                 >
-                  {rep.status}
+                  {rep.isActive ? 'Active' : 'Inactive'}
                 </span>
-                <button
-                  onClick={() => {
-                    setResetTarget(rep);
-                    setNewPassword('');
-                    setResetError('');
-                    setResetSuccess('');
-                  }}
-                  className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
-                >
-                  <Key className="w-3.5 h-3.5" />
-                  Reset Password
-                </button>
               </div>
             ))
           )}
@@ -486,36 +469,6 @@ export function DeskInchargeDashboard() {
             setViewingReport(null);
           }}
         />
-      )}
-
-      {/* ── Reset Password Dialog ── */}
-      {resetTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-bold text-gray-800">Reset Password</h4>
-              <button onClick={() => setResetTarget(null)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mb-4">
-              Set a new password for <strong>{resetTarget.name}</strong> ({resetTarget.email})
-            </p>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => { setNewPassword(e.target.value); setResetError(''); }}
-              placeholder="New password (min 4 chars)"
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none mb-3"
-            />
-            {resetError && <p className="text-xs text-red-600 mb-3">{resetError}</p>}
-            {resetSuccess && <p className="text-xs text-emerald-600 mb-3">{resetSuccess}</p>}
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setResetTarget(null)} className="px-4 py-2 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-              <button onClick={handleResetPassword} disabled={!!resetSuccess} className="px-4 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">Reset</button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ── Assign Countries Modal ── */}
