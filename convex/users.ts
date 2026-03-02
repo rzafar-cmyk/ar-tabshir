@@ -20,7 +20,9 @@ export const getAllUsers = query({
   },
 });
 
-/** Create or update a user record when they sign in via Clerk. */
+/** Try to link a Clerk sign-in to an existing Convex user.
+ *  Returns the user ID if found (by clerkId or email), or null if not authorized.
+ *  Does NOT create new users — only admin can pre-create users. */
 export const createOrUpdateUser = mutation({
   args: {
     clerkId: v.string(),
@@ -28,13 +30,13 @@ export const createOrUpdateUser = mutation({
     email: v.string(),
   },
   handler: async (ctx, args) => {
+    // 1. Already linked by Clerk ID
     const existing = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
       .first();
 
     if (existing) {
-      // Update last login and sync name/email from Clerk
       await ctx.db.patch(existing._id, {
         name: args.name,
         email: args.email,
@@ -43,33 +45,40 @@ export const createOrUpdateUser = mutation({
       return existing._id;
     }
 
-    // Check if a user was pre-created by admin (matched by email, no clerkId yet)
-    const preCreated = await ctx.db
+    // 2. Pre-created by admin — match by email (case-insensitive)
+    const emailLower = args.email.toLowerCase();
+    // Try exact index match first
+    let preCreated = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .withIndex("by_email", (q) => q.eq("email", emailLower))
       .first();
+    // If no exact match, scan for case-insensitive match (small table)
+    if (!preCreated) {
+      preCreated = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email))
+        .first();
+    }
+    if (!preCreated) {
+      const allUsers = await ctx.db.query("users").collect();
+      preCreated = allUsers.find(
+        (u) => u.email.toLowerCase() === emailLower
+      ) ?? null;
+    }
 
     if (preCreated) {
       // Link the Clerk ID to the pre-created user
       await ctx.db.patch(preCreated._id, {
         clerkId: args.clerkId,
         name: args.name,
+        email: emailLower, // normalize stored email
         lastLogin: Date.now(),
       });
       return preCreated._id;
     }
 
-    // New user — default role is country_rep (safest)
-    return await ctx.db.insert("users", {
-      clerkId: args.clerkId,
-      name: args.name,
-      email: args.email,
-      role: "country_rep",
-      assignedCountries: [],
-      isActive: true,
-      createdAt: Date.now(),
-      lastLogin: Date.now(),
-    });
+    // 3. No match — user is NOT pre-registered. Do NOT create a record.
+    return null;
   },
 });
 
@@ -210,11 +219,12 @@ export const createUser = mutation({
       throw new Error("Only super_admin can create users.");
     }
 
-    // Check if email already exists
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
+    // Check if email already exists (case-insensitive)
+    const emailLower = args.email.toLowerCase();
+    const allUsers = await ctx.db.query("users").collect();
+    const existing = allUsers.find(
+      (u) => u.email.toLowerCase() === emailLower
+    );
     if (existing) {
       throw new Error("A user with this email already exists.");
     }
@@ -222,7 +232,7 @@ export const createUser = mutation({
     return await ctx.db.insert("users", {
       clerkId: "",
       name: args.name,
-      email: args.email,
+      email: emailLower,
       role: args.role,
       assignedCountries: args.assignedCountries ?? [],
       assignedDesk: args.assignedDesk,
@@ -255,6 +265,58 @@ export const assignCountriesToUser = mutation({
     await ctx.db.patch(args.userId, {
       assignedCountries: args.assignedCountries,
     });
+  },
+});
+
+/** Merge duplicate users by email. Keeps the admin-created one (with role/country),
+ *  copies the clerkId from the auto-created one, then deletes the duplicate. */
+export const cleanupDuplicateUsers = mutation({
+  args: { callerClerkId: v.string() },
+  handler: async (ctx, args) => {
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.callerClerkId))
+      .first();
+    if (!caller || caller.role !== "super_admin") {
+      throw new Error("Only super_admin can clean up duplicates.");
+    }
+
+    const allUsers = await ctx.db.query("users").collect();
+    // Group by lowercase email
+    const byEmail: Record<string, typeof allUsers> = {};
+    for (const u of allUsers) {
+      const key = u.email.toLowerCase();
+      if (!byEmail[key]) byEmail[key] = [];
+      byEmail[key].push(u);
+    }
+
+    let cleaned = 0;
+    for (const [, group] of Object.entries(byEmail)) {
+      if (group.length <= 1) continue;
+      // Prefer the one that has a non-empty role assignment (admin-created)
+      // and copy clerkId from the one that has it
+      const withClerk = group.find((u) => u.clerkId !== "");
+      const adminCreated = group.find(
+        (u) => u.assignedCountries.length > 0 || u.role !== "country_rep"
+      );
+      const keep = adminCreated ?? group[0];
+      // If the kept record has no clerkId but another does, copy it
+      if (keep.clerkId === "" && withClerk) {
+        await ctx.db.patch(keep._id, {
+          clerkId: withClerk.clerkId,
+          lastLogin: Math.max(keep.lastLogin, withClerk.lastLogin),
+          email: keep.email.toLowerCase(),
+        });
+      }
+      // Delete all others
+      for (const u of group) {
+        if (u._id !== keep._id) {
+          await ctx.db.delete(u._id);
+          cleaned++;
+        }
+      }
+    }
+    return { cleaned };
   },
 });
 

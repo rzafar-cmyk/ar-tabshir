@@ -28,6 +28,12 @@ if (!clerkPubKey) {
         afterSignOutUrl="/ar-tabshir/"
         signInForceRedirectUrl="/ar-tabshir/"
         signUpForceRedirectUrl="/ar-tabshir/"
+        appearance={{
+          elements: {
+            footerActionLink: { display: 'none' },      // hide "Don't have an account? Sign up"
+            footerActionText: { display: 'none' },       // hide the text next to it
+          },
+        }}
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <SignedOut>
