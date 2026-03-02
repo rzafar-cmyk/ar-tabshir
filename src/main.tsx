@@ -24,6 +24,7 @@ if (!clerkPubKey) {
         publishableKey={clerkPubKey}
         afterSignInUrl="/ar-tabshir/"
         afterSignUpUrl="/ar-tabshir/"
+        afterSignOutUrl="/ar-tabshir/"
         signInForceRedirectUrl="/ar-tabshir/"
         signUpForceRedirectUrl="/ar-tabshir/"
       >

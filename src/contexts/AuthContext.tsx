@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     : null;
 
   const logout = () => {
-    signOut();
+    signOut({ redirectUrl: '/ar-tabshir/' });
   };
 
   // refreshUser is a no-op — Convex queries are reactive and auto-refresh
