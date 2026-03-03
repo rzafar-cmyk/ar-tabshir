@@ -186,8 +186,8 @@ export const FIELD_MAP: FieldDefinition[] = [
   // ═══ SECTION 22: Rishta Nata ═══
   { excel_code: 'rn1', column: 'rn1_committee_established', section_en: '22. Rishta Nata', section_ur: 'رشتہ ناطہ', label_en: 'Committee Established?', label_ur: 'کمیٹی قائم ہے؟', db_type: 'varchar', aggregatable: false },
   { excel_code: 'rn2', column: 'rn2_marriages_total',       section_en: '22. Rishta Nata', section_ur: 'رشتہ ناطہ', label_en: 'Total Marriages', label_ur: 'کل شادیاں', db_type: 'int', aggregatable: true },
-  { excel_code: 'rn3', column: 'rn3_proposals_via_dept',    section_en: '22. Rishta Nata', section_ur: 'رشتہ ناطہ', label_en: 'Proposals via Department', label_ur: 'شعبے کے ذریعے رشتے', db_type: 'int', aggregatable: true },
-  { excel_code: 'rn4', column: 'rn4_marriages_outside_dept', section_en: '22. Rishta Nata', section_ur: 'رشتہ ناطہ', label_en: 'Marriages outside the Department', label_ur: 'شعبے کے باہر شادیاں', db_type: 'int', aggregatable: true },
+  { excel_code: 'rn3', column: 'rn3_proposals_via_dept',    section_en: '22. Rishta Nata', section_ur: 'رشتہ ناطہ', label_en: 'How many matches were proposed through Rishta Nata department?', label_ur: 'رشتہ ناتہ ڈیپارٹمنٹ کے ذریعے کتنے رشتے تجویز ہوئے؟', db_type: 'int', aggregatable: true },
+  { excel_code: 'rn4', column: 'rn4_matches_completed', section_en: '22. Rishta Nata', section_ur: 'رشتہ ناطہ', label_en: 'How many matches were successfully completed?', label_ur: 'کتنے رشتے کامیابی سے طے پائے؟', db_type: 'int', aggregatable: true },
 
   // ═══ SECTION 23: External Affairs ═══
   { excel_code: 'ak1', column: 'ak1_mp_meetings',              section_en: '23. External Affairs', section_ur: 'امورِ خارجیہ', label_en: 'Meetings with MPs/Senators', label_ur: 'ارکان پارلیمنٹ سے ملاقاتیں', db_type: 'int', aggregatable: true },
