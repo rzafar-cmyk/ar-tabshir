@@ -534,7 +534,8 @@ export const REPORT_FORM_SECTIONS: FormSection[] = [
     fields: [
       { code: 'rn1', label: 'Has the Rishta Nata Committee been established?', labelUrdu: 'کیا آپ کے ملک میں رشتہ ناطہ کمیٹی قائم ہے؟', type: 'select', options: ['Yes', 'No'], notes: '★ Submit yearly report: prevailing situation, problems, analysis.' },
       { code: 'rn2', label: 'Total Marriages solemnised under Rishta Nata Department', labelUrdu: 'شعبہ رشتہ ناطہ کے تحت کل کتنے رشتے طے ہوئے', type: 'number' },
-
+      { code: 'rn3', label: 'Proposals via Department', labelUrdu: 'شعبے کے ذریعے رشتے', type: 'number' },
+      { code: 'rn4', label: 'Marriages outside the Department', labelUrdu: 'شعبے کے باہر شادیاں', type: 'number' },
     ],
   },
 

@@ -17,8 +17,6 @@ import { ReportsList, StatusCards, FilterPanel, ReportDetailModal } from "./comp
 import { CompileSection } from "./components/compile";
 import { SearchSection } from "./components/search/SearchSection";
 import { AuditLogSection } from "./components/audit/AuditLogSection";
-import { ImportHistoricalData } from "./components/import/ImportHistoricalData";
-import { FactoryReset } from "./components/admin/FactoryReset";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { CountryDashboard } from "./components/country-rep/CountryDashboard";
 import { DeskInchargeDashboard } from "./components/desk-incharge/DeskInchargeDashboard";
@@ -237,7 +235,7 @@ function NavItem({ icon, label, active, onClick, badge }: { icon: string; label:
 // Reports Section Component
 function ReportsSection({ onEditReport }: { onEditReport: (country: string, year: number) => void }) {
   const { user: authUser } = useAuth();
-  const { activeReports: convexActiveReports, archivedReports: convexArchivedReports, updateReportStatus, archiveReport: doArchive, restoreReport: doRestore, deleteReport: doDelete } = useConvexData();
+  const { activeReports: convexActiveReports, updateReportStatus, archiveReport: doArchive } = useConvexData();
   const [filters, setFilters] = useState<{
     status: string[];
     continent: string[];
@@ -251,7 +249,6 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
   });
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [showFilters, setShowFilters] = useState(true);
-  const [showArchived, setShowArchived] = useState(false);
 
   const userRole: 'admin' | 'contributor' | 'viewer' =
     authUser?.role === 'super_admin' || authUser?.role === 'desk_incharge' ? 'admin' : 'viewer';
@@ -273,8 +270,6 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
   });
 
   const liveReports: Report[] = convexActiveReports.map(storedToReport);
-
-  const archivedReportsList: Report[] = convexArchivedReports.map(storedToReport);
 
   // Status cards count only the current fiscal year
   const currentYearReports = liveReports.filter(r => r.year === getCurrentFiscalYear());
@@ -338,40 +333,23 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
     setSelectedReport(null);
   };
 
-  const handleRestoreReport = async (report: Report) => {
-    await doRestore(report.id);
-  };
-
-  const handlePermanentDeleteReport = async (report: Report) => {
-    if (!window.confirm(`PERMANENTLY delete the report for ${report.country} (${report.year})? This action CANNOT be undone.`)) return;
-    await doDelete(report.id);
-  };
-
   return (
     <div className="p-6 space-y-6 h-[calc(100vh-64px)] overflow-y-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">{showArchived ? 'Archived Reports' : 'Country Reports'}</h2>
-          <p className="text-sm text-gray-500">{showArchived ? 'View and restore archived reports' : 'Manage and review annual reports from all countries'}</p>
+          <h2 className="text-xl font-bold text-gray-800">Country Reports</h2>
+          <p className="text-sm text-gray-500">Manage and review annual reports from all countries</p>
         </div>
-        {authUser?.role === 'super_admin' && (
-          <button
-            onClick={() => setShowArchived(prev => !prev)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg border transition-colors ${showArchived ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-          >
-            {showArchived ? '← Back to Active Reports' : `Archived (${archivedReportsList.length})`}
-          </button>
-        )}
       </div>
 
-      {/* Status Cards — only for active view */}
-      {!showArchived && <StatusCards stats={stats} />}
+      {/* Status Cards */}
+      <StatusCards stats={stats} />
 
       {/* Main Content */}
       <div className="flex gap-6">
-        {/* Filters Sidebar — only for active view */}
-        {!showArchived && showFilters && (
+        {/* Filters Sidebar */}
+        {showFilters && (
           <div className="w-64 flex-shrink-0">
             <FilterPanel
               filters={filters}
@@ -384,20 +362,24 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
 
         {/* Reports Table */}
         <div className="flex-1">
-          {showArchived ? (
-            <ReportsList
-              reports={archivedReportsList}
-              onView={(report) => setSelectedReport(report)}
-              onEdit={() => {}}
-              onApprove={() => {}}
-              onRequestRevision={() => {}}
-              onDelete={() => {}}
-              onExport={() => {}}
-              userRole={userRole}
-              isArchiveView
-              onRestore={(report) => handleRestoreReport(report)}
-              onPermanentDelete={(report) => handlePermanentDeleteReport(report)}
-            />
+          {filteredReports.length === 0 && liveReports.length > 0 && filters.year.length > 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+                <span className="text-2xl">📋</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                No reports for {formatFiscalYear(Number(filters.year[0]))} yet
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                There are {liveReports.length} reports available in other years
+              </p>
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, year: [] }))}
+                className="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                View All Years
+              </button>
+            </div>
           ) : (
             <ReportsList
               reports={filteredReports}
@@ -908,8 +890,6 @@ const TAB_HASH_MAP: Record<string, string> = {
   '#search': 'search',
   '#settings': 'settings',
   '#audit': 'audit',
-  '#import': 'import',
-  '#reset': 'factory-reset',
   '#overview': 'overview',
   '#my-dashboard': 'my-dashboard',
   '#my-report': 'my-report',
@@ -1240,16 +1220,10 @@ function App() {
               )}
               <NavItem icon="🔍" label="Search" active={activeTab === "search"} onClick={() => setActiveTab("search")} />
               {user.role === 'super_admin' && (
-                <NavItem icon="📥" label="Import" active={activeTab === "import"} onClick={() => setActiveTab("import")} />
-              )}
-              {user.role === 'super_admin' && (
                 <NavItem icon="⚙️" label="Settings" active={activeTab === "settings"} onClick={() => setActiveTab("settings")} />
               )}
               {(user.role === 'super_admin' || user.role === 'desk_incharge') && (
                 <NavItem icon="📋" label="Audit Log" active={activeTab === "audit"} onClick={() => setActiveTab("audit")} />
-              )}
-              {user.role === 'super_admin' && (
-                <NavItem icon="🗑️" label="Reset" active={activeTab === "factory-reset"} onClick={() => setActiveTab("factory-reset")} />
               )}
             </>
           )}
@@ -1295,8 +1269,6 @@ function App() {
                     : activeTab === "my-dashboard" ? "My Dashboard"
                     : activeTab === "my-report" ? `${repCountry} — Report`
                     : activeTab === "new-report" ? "New Report"
-                    : activeTab === "import" ? "Import Historical Data"
-                    : activeTab === "factory-reset" ? "Factory Reset"
                     : activeTab === "settings" ? "Settings"
                     : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                 </h2>
@@ -1364,10 +1336,6 @@ function App() {
           <SettingsPage />
         ) : activeTab === "audit" ? (
           <AuditLogSection />
-        ) : activeTab === "import" ? (
-          <ImportHistoricalData onDone={() => setActiveTab('reports')} />
-        ) : activeTab === "factory-reset" ? (
-          <FactoryReset onDone={() => setActiveTab('overview')} />
         ) : (
         <div className="p-6 space-y-6">
           {/* Deadline Countdown — visible to desk_incharge */}
