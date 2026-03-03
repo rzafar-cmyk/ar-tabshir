@@ -23,11 +23,11 @@ if (!clerkPubKey) {
     <StrictMode>
       <ClerkProvider
         publishableKey={clerkPubKey}
-        afterSignInUrl="/ar-tabshir/"
-        afterSignUpUrl="/ar-tabshir/"
-        afterSignOutUrl="/ar-tabshir/"
-        signInForceRedirectUrl="/ar-tabshir/"
-        signUpForceRedirectUrl="/ar-tabshir/"
+        afterSignInUrl="/"
+        afterSignUpUrl="/"
+        afterSignOutUrl="/"
+        signInForceRedirectUrl="/"
+        signUpForceRedirectUrl="/"
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <SignedOut>
@@ -53,7 +53,7 @@ if (!clerkPubKey) {
               </div>
 
               {/* Clerk sign-in (handles both sign-in and sign-up) */}
-              <SignIn routing="hash" forceRedirectUrl="/ar-tabshir/" />
+              <SignIn routing="hash" forceRedirectUrl="/" />
 
               {/* Info notice */}
               <div style={{

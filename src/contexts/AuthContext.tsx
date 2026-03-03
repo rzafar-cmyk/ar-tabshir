@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignOut = useCallback(() => {
     setIsUnauthorized(false);
     setLinkAttempted(false);
-    signOut({ redirectUrl: '/ar-tabshir/' });
+    signOut({ redirectUrl: '/' });
   }, [signOut]);
 
   // Show unauthorized screen
@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     : null;
 
   const logout = () => {
-    signOut({ redirectUrl: '/ar-tabshir/' });
+    signOut({ redirectUrl: '/' });
   };
 
   // refreshUser is a no-op — Convex queries are reactive and auto-refresh

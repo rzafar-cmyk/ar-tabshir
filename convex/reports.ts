@@ -3,17 +3,31 @@ import { v } from "convex/values";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 
 // ── Auth helper ─────────────────────────────────────────────
-async function getAuthUser(ctx: QueryCtx | MutationCtx) {
+// Tries JWT identity first; falls back to callerClerkId parameter.
+async function getAuthUser(ctx: QueryCtx | MutationCtx, callerClerkId?: string) {
+  // 1. Try JWT identity (works when Clerk JWT template is configured)
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) return null;
-  return await ctx.db
-    .query("users")
-    .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-    .first();
+  if (identity) {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (user) return user;
+  }
+
+  // 2. Fallback: look up by callerClerkId passed from frontend
+  if (callerClerkId) {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", callerClerkId))
+      .first();
+  }
+
+  return null;
 }
 
-async function requireAuth(ctx: MutationCtx) {
-  const user = await getAuthUser(ctx);
+async function requireAuth(ctx: MutationCtx, callerClerkId?: string) {
+  const user = await getAuthUser(ctx, callerClerkId);
   if (!user) throw new Error("Not authenticated");
   return user;
 }
@@ -117,9 +131,10 @@ export const saveReport = mutation({
     approvedBy: v.optional(v.string()),
     approvedAt: v.optional(v.string()),
     revisionFlags: v.optional(v.any()),
+    callerClerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
+    const user = await requireAuth(ctx, args.callerClerkId);
     const now = new Date().toISOString();
 
     // Security: country_rep can only save for their assigned countries
@@ -183,9 +198,10 @@ export const updateReportStatus = mutation({
     updateRequestReason: v.optional(v.string()),
     updateRequestedAt: v.optional(v.string()),
     revisionFlags: v.optional(v.any()),
+    callerClerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
+    const user = await requireAuth(ctx, args.callerClerkId);
     const report = await ctx.db.get(args.reportId);
     if (!report) throw new Error("Report not found");
 
@@ -251,9 +267,12 @@ export const updateReportStatus = mutation({
 
 /** Soft-delete a report (archive). */
 export const archiveReport = mutation({
-  args: { reportId: v.id("reports") },
+  args: {
+    reportId: v.id("reports"),
+    callerClerkId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
+    const user = await requireAuth(ctx, args.callerClerkId);
     if (user.role !== "super_admin") {
       throw new Error("Only super_admin can archive reports");
     }
@@ -283,9 +302,12 @@ export const archiveReport = mutation({
 
 /** Restore an archived report. */
 export const restoreReport = mutation({
-  args: { reportId: v.id("reports") },
+  args: {
+    reportId: v.id("reports"),
+    callerClerkId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
+    const user = await requireAuth(ctx, args.callerClerkId);
     if (user.role !== "super_admin") {
       throw new Error("Only super_admin can restore reports");
     }
@@ -315,9 +337,12 @@ export const restoreReport = mutation({
 
 /** Permanently delete a report. */
 export const deleteReport = mutation({
-  args: { reportId: v.id("reports") },
+  args: {
+    reportId: v.id("reports"),
+    callerClerkId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
+    const user = await requireAuth(ctx, args.callerClerkId);
     if (user.role !== "super_admin") {
       throw new Error("Only super_admin can permanently delete reports");
     }
@@ -361,9 +386,10 @@ export const importReports = mutation({
         lastUpdated: v.optional(v.string()),
       })
     ),
+    callerClerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
+    const user = await requireAuth(ctx, args.callerClerkId);
     if (user.role !== "super_admin") {
       throw new Error("Only super_admin can import reports");
     }
@@ -426,9 +452,11 @@ export const importReports = mutation({
 
 /** Factory reset — delete all reports (super_admin only). */
 export const factoryResetReports = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const user = await requireAuth(ctx);
+  args: {
+    callerClerkId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAuth(ctx, args.callerClerkId);
     if (user.role !== "super_admin") {
       throw new Error("Only super_admin can factory reset");
     }

@@ -1,17 +1,31 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
+
+// Auth helper: JWT first, then callerClerkId fallback
+async function getAuthUser(ctx: QueryCtx | MutationCtx, callerClerkId?: string) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (identity) {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (user) return user;
+  }
+  if (callerClerkId) {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", callerClerkId))
+      .first();
+  }
+  return null;
+}
 
 /** Get all audit events (most recent first). Role-based: country_rep sees only own countries. */
 export const getAuditEvents = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-      .first();
+    const user = await getAuthUser(ctx);
     if (!user) return [];
 
     let events = await ctx.db
@@ -44,16 +58,11 @@ export const logAuditEvent = mutation({
     details: v.optional(v.string()),
     changes: v.optional(v.string()),
     reportId: v.optional(v.string()),
+    callerClerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-      .first();
-    if (!user) throw new Error("User not found");
+    const user = await getAuthUser(ctx, args.callerClerkId);
+    if (!user) throw new Error("Not authenticated");
 
     await ctx.db.insert("audit_log", {
       userId: user._id,
@@ -71,15 +80,11 @@ export const logAuditEvent = mutation({
 
 /** Clear all audit events (admin only, used in factory reset). */
 export const clearAuditLog = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-      .first();
+  args: {
+    callerClerkId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx, args.callerClerkId);
     if (!user || user.role !== "super_admin") {
       throw new Error("Only super_admin can clear audit log");
     }

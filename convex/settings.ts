@@ -1,12 +1,32 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import type { QueryCtx, MutationCtx } from "./_generated/server";
+
+// Auth helper: JWT first, then callerClerkId fallback
+async function getAuthUser(ctx: QueryCtx | MutationCtx, callerClerkId?: string) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (identity) {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (user) return user;
+  }
+  if (callerClerkId) {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", callerClerkId))
+      .first();
+  }
+  return null;
+}
 
 /** Get all settings as key-value pairs. */
 export const getAllSettings = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
+    const user = await getAuthUser(ctx);
+    if (!user) return [];
     return await ctx.db.query("settings").collect();
   },
 });
@@ -15,8 +35,8 @@ export const getAllSettings = query({
 export const getSetting = query({
   args: { key: v.string() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
+    const user = await getAuthUser(ctx);
+    if (!user) return null;
 
     return await ctx.db
       .query("settings")
@@ -30,16 +50,11 @@ export const setSetting = mutation({
   args: {
     key: v.string(),
     value: v.string(),
+    callerClerkId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-      .first();
-    if (!user) throw new Error("User not found");
+    const user = await getAuthUser(ctx, args.callerClerkId);
+    if (!user) throw new Error("Not authenticated");
 
     // Only super_admin can change settings
     if (user.role !== "super_admin") {
@@ -70,15 +85,12 @@ export const setSetting = mutation({
 
 /** Delete a setting by key. */
 export const deleteSetting = mutation({
-  args: { key: v.string() },
+  args: {
+    key: v.string(),
+    callerClerkId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-      .first();
+    const user = await getAuthUser(ctx, args.callerClerkId);
     if (!user || user.role !== "super_admin") {
       throw new Error("Only super_admin can delete settings");
     }

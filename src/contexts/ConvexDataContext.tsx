@@ -7,6 +7,7 @@
  */
 import { createContext, useContext, useMemo, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
@@ -151,6 +152,10 @@ const ConvexDataContext = createContext<ConvexDataContextType | null>(null);
 // ── Provider ────────────────────────────────────────────────
 
 export function ConvexDataProvider({ children }: { children: ReactNode }) {
+  // ── Clerk user ID (passed as fallback auth to mutations) ──
+  const { user: clerkUser } = useUser();
+  const callerClerkId = clerkUser?.id;
+
   // ── Queries ──
   const rawReports = useQuery(api.reports.getAllReports);
   const rawAuditEvents = useQuery(api.auditLog.getAuditEvents);
@@ -221,10 +226,10 @@ export function ConvexDataProvider({ children }: { children: ReactNode }) {
 
   const saveReport = useCallback(
     async (report: Parameters<ConvexDataContextType['saveReport']>[0]) => {
-      const id = await saveReportMutation(report);
+      const id = await saveReportMutation({ ...report, callerClerkId });
       return id as string;
     },
-    [saveReportMutation]
+    [saveReportMutation, callerClerkId]
   );
 
   const updateReportStatus = useCallback(
@@ -242,55 +247,56 @@ export function ConvexDataProvider({ children }: { children: ReactNode }) {
         updateRequestReason: extra?.updateRequestReason,
         updateRequestedAt: extra?.updateRequestedAt,
         revisionFlags: extra?.revisionFlags,
+        callerClerkId,
       });
     },
-    [updateReportStatusMutation]
+    [updateReportStatusMutation, callerClerkId]
   );
 
   const archiveReport = useCallback(
     async (reportId: string) => {
-      await archiveReportMutation({ reportId: reportId as Id<"reports"> });
+      await archiveReportMutation({ reportId: reportId as Id<"reports">, callerClerkId });
     },
-    [archiveReportMutation]
+    [archiveReportMutation, callerClerkId]
   );
 
   const restoreReport = useCallback(
     async (reportId: string) => {
-      await restoreReportMutation({ reportId: reportId as Id<"reports"> });
+      await restoreReportMutation({ reportId: reportId as Id<"reports">, callerClerkId });
     },
-    [restoreReportMutation]
+    [restoreReportMutation, callerClerkId]
   );
 
   const deleteReport = useCallback(
     async (reportId: string) => {
-      await deleteReportMutation({ reportId: reportId as Id<"reports"> });
+      await deleteReportMutation({ reportId: reportId as Id<"reports">, callerClerkId });
     },
-    [deleteReportMutation]
+    [deleteReportMutation, callerClerkId]
   );
 
   const importReports = useCallback(
     async (reports: Parameters<ConvexDataContextType['importReports']>[0]) => {
-      return await importReportsMutation({ reports });
+      return await importReportsMutation({ reports, callerClerkId });
     },
-    [importReportsMutation]
+    [importReportsMutation, callerClerkId]
   );
 
   const logAuditEvent = useCallback(
     async (event: Parameters<ConvexDataContextType['logAuditEvent']>[0]) => {
-      await logAuditMutation(event);
+      await logAuditMutation({ ...event, callerClerkId });
     },
-    [logAuditMutation]
+    [logAuditMutation, callerClerkId]
   );
 
   const setDeadline = useCallback(
     async (dl: string | null) => {
       if (dl) {
-        await setSettingMutation({ key: 'deadline', value: dl });
+        await setSettingMutation({ key: 'deadline', value: dl, callerClerkId });
       } else {
-        await deleteSettingMutation({ key: 'deadline' });
+        await deleteSettingMutation({ key: 'deadline', callerClerkId });
       }
     },
-    [setSettingMutation, deleteSettingMutation]
+    [setSettingMutation, deleteSettingMutation, callerClerkId]
   );
 
   const setYearStatus = useCallback(
@@ -300,14 +306,15 @@ export function ConvexDataProvider({ children }: { children: ReactNode }) {
       await setSettingMutation({
         key: 'year_statuses',
         value: JSON.stringify(current),
+        callerClerkId,
       });
     },
-    [setSettingMutation, yearStatuses]
+    [setSettingMutation, yearStatuses, callerClerkId]
   );
 
   const factoryReset = useCallback(async () => {
-    await factoryResetMutation();
-  }, [factoryResetMutation]);
+    await factoryResetMutation({ callerClerkId });
+  }, [factoryResetMutation, callerClerkId]);
 
   const value: ConvexDataContextType = {
     allReports,
