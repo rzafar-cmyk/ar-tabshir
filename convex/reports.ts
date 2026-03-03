@@ -36,9 +36,9 @@ async function requireAuth(ctx: MutationCtx, callerClerkId?: string) {
 
 /** Get all reports the current user is authorized to see (active + archived). */
 export const getAllReports = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getAuthUser(ctx);
+  args: { callerClerkId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx, args.callerClerkId);
     if (!user) return [];
 
     let reports = await ctx.db.query("reports").collect();
@@ -56,9 +56,9 @@ export const getAllReports = query({
 
 /** Get reports for a specific country (all years). */
 export const getReportsByCountry = query({
-  args: { country: v.string() },
+  args: { country: v.string(), callerClerkId: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
+    const user = await getAuthUser(ctx, args.callerClerkId);
     if (!user) return [];
 
     // Verify access
@@ -78,9 +78,9 @@ export const getReportsByCountry = query({
 
 /** Get report stats for dashboard (counts by status for a given year). */
 export const getReportStats = query({
-  args: { year: v.optional(v.number()) },
+  args: { year: v.optional(v.number()), callerClerkId: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
+    const user = await getAuthUser(ctx, args.callerClerkId);
     if (!user) return { total: 0, draft: 0, submitted: 0, approved: 0, revisionRequested: 0 };
 
     let reports = await ctx.db.query("reports").collect();

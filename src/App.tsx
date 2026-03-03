@@ -247,6 +247,7 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
     year: [String(getCurrentFiscalYear())],
     progressRange: null,
   });
+  const [yearFilterInitialized, setYearFilterInitialized] = useState(false);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [showFilters, setShowFilters] = useState(true);
 
@@ -270,6 +271,18 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
   });
 
   const liveReports: Report[] = convexActiveReports.map(storedToReport);
+
+  // Smart year default: if current fiscal year has no data, show all years
+  useEffect(() => {
+    if (!yearFilterInitialized && liveReports.length > 0) {
+      const currentYear = getCurrentFiscalYear();
+      const hasCurrentYear = liveReports.some(r => r.year === currentYear);
+      if (!hasCurrentYear) {
+        setFilters(prev => ({ ...prev, year: [] }));
+      }
+      setYearFilterInitialized(true);
+    }
+  }, [liveReports.length, yearFilterInitialized]);
 
   // Status cards count only the current fiscal year
   const currentYearReports = liveReports.filter(r => r.year === getCurrentFiscalYear());
@@ -362,7 +375,19 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
 
         {/* Reports Table */}
         <div className="flex-1">
-          {filteredReports.length === 0 && liveReports.length > 0 && filters.year.length > 0 ? (
+          {liveReports.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
+                <span className="text-2xl">📭</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                No reports yet
+              </h3>
+              <p className="text-sm text-gray-500">
+                Reports will appear here once countries submit their annual data.
+              </p>
+            </div>
+          ) : filteredReports.length === 0 && filters.year.length > 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
                 <span className="text-2xl">📋</span>
@@ -378,6 +403,24 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
                 className="px-5 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 View All Years
+              </button>
+            </div>
+          ) : filteredReports.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mb-4">
+                <span className="text-2xl">🔍</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                No reports match your filters
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Try adjusting your filter criteria
+              </p>
+              <button
+                onClick={handleClearFilters}
+                className="px-5 py-2 text-sm font-semibold bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Clear Filters
               </button>
             </div>
           ) : (

@@ -156,10 +156,19 @@ export function ConvexDataProvider({ children }: { children: ReactNode }) {
   const { user: clerkUser } = useUser();
   const callerClerkId = clerkUser?.id;
 
-  // ── Queries ──
-  const rawReports = useQuery(api.reports.getAllReports);
-  const rawAuditEvents = useQuery(api.auditLog.getAuditEvents);
-  const rawSettings = useQuery(api.settings.getAllSettings);
+  // ── Queries (pass callerClerkId as fallback when JWT isn't configured) ──
+  const rawReports = useQuery(
+    api.reports.getAllReports,
+    callerClerkId ? { callerClerkId } : "skip"
+  );
+  const rawAuditEvents = useQuery(
+    api.auditLog.getAuditEvents,
+    callerClerkId ? { callerClerkId } : "skip"
+  );
+  const rawSettings = useQuery(
+    api.settings.getAllSettings,
+    callerClerkId ? { callerClerkId } : "skip"
+  );
 
   const isLoading = rawReports === undefined;
 

@@ -23,9 +23,9 @@ async function getAuthUser(ctx: QueryCtx | MutationCtx, callerClerkId?: string) 
 
 /** Get all audit events (most recent first). Role-based: country_rep sees only own countries. */
 export const getAuditEvents = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getAuthUser(ctx);
+  args: { callerClerkId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx, args.callerClerkId);
     if (!user) return [];
 
     let events = await ctx.db

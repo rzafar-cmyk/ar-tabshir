@@ -23,9 +23,9 @@ async function getAuthUser(ctx: QueryCtx | MutationCtx, callerClerkId?: string) 
 
 /** Get all settings as key-value pairs. */
 export const getAllSettings = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getAuthUser(ctx);
+  args: { callerClerkId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await getAuthUser(ctx, args.callerClerkId);
     if (!user) return [];
     return await ctx.db.query("settings").collect();
   },
@@ -33,9 +33,9 @@ export const getAllSettings = query({
 
 /** Get a single setting by key. */
 export const getSetting = query({
-  args: { key: v.string() },
+  args: { key: v.string(), callerClerkId: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
+    const user = await getAuthUser(ctx, args.callerClerkId);
     if (!user) return null;
 
     return await ctx.db
