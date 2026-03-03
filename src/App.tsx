@@ -377,6 +377,7 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
               filters={filters}
               onChange={setFilters}
               onClear={handleClearFilters}
+              reports={liveReports}
             />
           </div>
         )}

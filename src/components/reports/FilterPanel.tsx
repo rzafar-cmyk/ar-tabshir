@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { getAvailableFiscalYears, formatFiscalYear } from '@/lib/fiscalYear';
 
@@ -13,6 +13,7 @@ interface FilterPanelProps {
   filters: FilterState;
   onChange: (filters: FilterState) => void;
   onClear: () => void;
+  reports?: { year: number }[];
 }
 
 const statusOptions = [
@@ -33,8 +34,6 @@ const continentOptions = [
   { value: 'oceania', label: 'Oceania' },
 ];
 
-const yearOptions = getAvailableFiscalYears().map(String);
-
 const progressRanges = [
   { label: 'All', min: 0, max: 100 },
   { label: '0-25%', min: 0, max: 25 },
@@ -43,12 +42,18 @@ const progressRanges = [
   { label: '76-100%', min: 76, max: 100 },
 ];
 
-export function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
+export function FilterPanel({ filters, onChange, onClear, reports }: FilterPanelProps) {
   const [expanded, setExpanded] = useState<string[]>(['status']);
 
+  // Build year options from actual report data (includes all years in DB + current)
+  const yearOptions = useMemo(
+    () => getAvailableFiscalYears(reports).map(String),
+    [reports]
+  );
+
   const toggleExpanded = (section: string) => {
-    setExpanded(prev => 
-      prev.includes(section) 
+    setExpanded(prev =>
+      prev.includes(section)
         ? prev.filter(s => s !== section)
         : [...prev, section]
     );
@@ -66,20 +71,20 @@ export function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
     onChange({ ...filters, progressRange: range });
   };
 
-  const activeFilterCount = 
-    filters.status.length + 
-    filters.continent.length + 
-    filters.year.length + 
+  const activeFilterCount =
+    filters.status.length +
+    filters.continent.length +
+    filters.year.length +
     (filters.progressRange ? 1 : 0);
 
-  const FilterSection = ({ 
-    title, 
-    sectionKey, 
-    children 
-  }: { 
-    title: string; 
-    sectionKey: string; 
-    children: React.ReactNode 
+  const FilterSection = ({
+    title,
+    sectionKey,
+    children
+  }: {
+    title: string;
+    sectionKey: string;
+    children: React.ReactNode
   }) => (
     <div className="border-b border-gray-100 last:border-0">
       <button
@@ -87,8 +92,8 @@ export function FilterPanel({ filters, onChange, onClear }: FilterPanelProps) {
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
       >
         <span className="text-sm font-medium text-gray-700">{title}</span>
-        <ChevronDown 
-          className={`w-4 h-4 text-gray-400 transition-transform ${expanded.includes(sectionKey) ? 'rotate-180' : ''}`} 
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 transition-transform ${expanded.includes(sectionKey) ? 'rotate-180' : ''}`}
         />
       </button>
       {expanded.includes(sectionKey) && (
