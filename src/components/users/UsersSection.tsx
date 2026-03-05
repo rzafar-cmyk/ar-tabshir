@@ -21,7 +21,11 @@ export function UsersSection() {
   const clerkId = clerkUser?.id ?? '';
 
   // Fetch all users from Convex (reactive)
-  const convexUsers = useQuery(api.users.getAllUsers) ?? [];
+  const convexUsersRaw = useQuery(api.users.getAllUsers);
+  const convexUsers = convexUsersRaw ?? [];
+
+  // Debug: log what we're getting from Convex
+  console.log('[UsersSection] clerkId:', clerkId, '| convexUsers:', convexUsers.length, '| raw:', convexUsersRaw === undefined ? 'loading' : 'loaded');
 
   // Mutations
   const createUserMut = useMutation(api.users.createUser);
@@ -68,16 +72,23 @@ export function UsersSection() {
     isActive: boolean;
   }) => {
     if (!editingUser) return;
-    await updateUserMut({
-      userId: editingUser._id as Id<"users">,
-      callerClerkId: clerkId,
-      role: data.role,
-      assignedCountries: data.assignedCountries,
-      assignedDesk: data.assignedDesk,
-      isActive: data.isActive,
-    });
-    setEditingUser(null);
-    setToast(`User "${editingUser.name}" updated successfully.`);
+    console.log('[UsersSection] handleEditUser called', { editingUser: editingUser._id, data, callerClerkId: clerkId });
+    try {
+      await updateUserMut({
+        userId: editingUser._id as Id<"users">,
+        callerClerkId: clerkId,
+        role: data.role,
+        assignedCountries: data.assignedCountries,
+        assignedDesk: data.assignedDesk,
+        isActive: data.isActive,
+      });
+      console.log('[UsersSection] updateUser mutation succeeded');
+      setEditingUser(null);
+      setToast(`User "${editingUser.name}" updated successfully.`);
+    } catch (err) {
+      console.error('[UsersSection] updateUser mutation FAILED', err);
+      throw err; // re-throw so UserFormModal catches and shows the error
+    }
   }, [editingUser, clerkId, updateUserMut]);
 
   // Create handler
@@ -88,27 +99,41 @@ export function UsersSection() {
     assignedCountries?: string[];
     assignedDesk?: string;
   }) => {
-    await createUserMut({
-      callerClerkId: clerkId,
-      name: data.name,
-      email: data.email,
-      role: data.role,
-      assignedCountries: data.assignedCountries,
-      assignedDesk: data.assignedDesk,
-    });
-    setShowAddUser(false);
-    setToast(`User "${data.name}" created successfully.`);
+    console.log('[UsersSection] handleCreateUser called', { data, callerClerkId: clerkId });
+    try {
+      const result = await createUserMut({
+        callerClerkId: clerkId,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        assignedCountries: data.assignedCountries,
+        assignedDesk: data.assignedDesk,
+      });
+      console.log('[UsersSection] createUser mutation succeeded', result);
+      setShowAddUser(false);
+      setToast(`User "${data.name}" created successfully.`);
+    } catch (err) {
+      console.error('[UsersSection] createUser mutation FAILED', err);
+      throw err; // re-throw so AddUserModal catches and shows the error
+    }
   }, [clerkId, createUserMut]);
 
   // Delete handler
   const handleDeleteUser = useCallback(async () => {
     if (!showDeleteConfirm) return;
-    await deleteUserMut({
-      userId: showDeleteConfirm as Id<"users">,
-      callerClerkId: clerkId,
-    });
-    setShowDeleteConfirm(null);
-    setToast('User deleted successfully.');
+    console.log('[UsersSection] handleDeleteUser called', { userId: showDeleteConfirm, callerClerkId: clerkId });
+    try {
+      await deleteUserMut({
+        userId: showDeleteConfirm as Id<"users">,
+        callerClerkId: clerkId,
+      });
+      console.log('[UsersSection] deleteUser mutation succeeded');
+      setShowDeleteConfirm(null);
+      setToast('User deleted successfully.');
+    } catch (err) {
+      console.error('[UsersSection] deleteUser mutation FAILED', err);
+      setToast(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   }, [showDeleteConfirm, clerkId, deleteUserMut]);
 
   const filteredUsers = users.filter(user => {
