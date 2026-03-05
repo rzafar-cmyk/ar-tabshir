@@ -320,6 +320,107 @@ export const cleanupDuplicateUsers = mutation({
   },
 });
 
+/** One-time migration: clean up duplicate Rashid Ahmad and add missing users.
+ *  Safe to run multiple times — skips users that already exist. */
+export const migrateFixUsers = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allUsers = await ctx.db.query("users").collect();
+    const log: string[] = [];
+
+    // --- Fix duplicate "Rashid Ahmad" ---
+    const rashidUsers = allUsers.filter(
+      (u) => u.email.toLowerCase() === "rasheed.zafar@gmail.com"
+    );
+    if (rashidUsers.length > 1) {
+      // Keep the one with a real clerkId; if both have one, keep the first linked
+      const withClerk = rashidUsers.find((u) => u.clerkId !== "");
+      const keep = withClerk ?? rashidUsers[0];
+      for (const u of rashidUsers) {
+        if (u._id !== keep._id) {
+          // Copy clerkId if the kept one doesn't have it
+          if (keep.clerkId === "" && u.clerkId !== "") {
+            await ctx.db.patch(keep._id, { clerkId: u.clerkId });
+          }
+          await ctx.db.delete(u._id);
+          log.push(`Deleted duplicate Rashid Ahmad (${u._id})`);
+        }
+      }
+      log.push(`Kept Rashid Ahmad (${keep._id}, clerkId: ${keep.clerkId || "empty"})`);
+    } else if (rashidUsers.length === 1) {
+      log.push("Rashid Ahmad: no duplicates found, OK");
+    }
+
+    // --- Ensure Rashid Ahmad exists ---
+    const rashidEmail = "rasheed.zafar@gmail.com";
+    // Re-read after potential deletion above
+    const currentUsers = await ctx.db.query("users").collect();
+    const rashidExists = currentUsers.find(
+      (u) => u.email.toLowerCase() === rashidEmail.toLowerCase()
+    );
+    if (!rashidExists) {
+      await ctx.db.insert("users", {
+        clerkId: "",
+        name: "Rashid Ahmad",
+        email: rashidEmail,
+        role: "super_admin",
+        assignedCountries: [],
+        isActive: true,
+        createdAt: Date.now(),
+        lastLogin: 0,
+      });
+      log.push("Added Rashid Ahmad (super_admin)");
+    } else {
+      log.push("Rashid Ahmad already exists, skipped");
+    }
+
+    // --- Add missing user: Aziz Ahmed ---
+    const azizEmail = "bilal.azizahmad@gmail.com";
+    const azizExists = allUsers.find(
+      (u) => u.email.toLowerCase() === azizEmail.toLowerCase()
+    );
+    if (!azizExists) {
+      await ctx.db.insert("users", {
+        clerkId: "", // will be linked on first Clerk sign-in
+        name: "Aziz Ahmed",
+        email: azizEmail,
+        role: "super_admin",
+        assignedCountries: [],
+        isActive: true,
+        createdAt: Date.now(),
+        lastLogin: 0,
+      });
+      log.push("Added Aziz Ahmed (super_admin)");
+    } else {
+      log.push("Aziz Ahmed already exists, skipped");
+    }
+
+    // --- Add missing user: t.khan ---
+    const tkhanEmail = "ibnezafar@outlook.com";
+    const tkhanExists = allUsers.find(
+      (u) => u.email.toLowerCase() === tkhanEmail.toLowerCase()
+    );
+    if (!tkhanExists) {
+      await ctx.db.insert("users", {
+        clerkId: "", // user hasn't signed up via Clerk yet
+        name: "t.khan",
+        email: tkhanEmail,
+        role: "desk_incharge",
+        assignedCountries: ["Ghana", "Nigeria"],
+        assignedDesk: "Africa Desk",
+        isActive: true,
+        createdAt: Date.now(),
+        lastLogin: 0,
+      });
+      log.push("Added t.khan (desk_incharge, Ghana/Nigeria)");
+    } else {
+      log.push("t.khan already exists, skipped");
+    }
+
+    return { log };
+  },
+});
+
 /** Delete a user (super_admin only). */
 export const deleteUser = mutation({
   args: {
