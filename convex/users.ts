@@ -159,13 +159,22 @@ export const updateUser = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    console.log("[updateUser] callerClerkId:", args.callerClerkId, "userId:", args.userId);
+
     // Verify caller is super_admin
     const caller = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", args.callerClerkId))
       .first();
+
+    console.log("[updateUser] caller found:", caller ? `${caller.name} (${caller.role})` : "NOT FOUND");
+
     if (!caller || caller.role !== "super_admin") {
-      throw new Error("Only super_admin can edit users.");
+      const allUsersDebug = await ctx.db.query("users").collect();
+      console.log("[updateUser] All users:", allUsersDebug.map(u => ({
+        name: u.name, clerkId: u.clerkId, role: u.role,
+      })));
+      throw new Error(`Only super_admin can edit users. callerClerkId: ${args.callerClerkId}, found: ${caller ? caller.role : "no match"}`);
     }
 
     const target = await ctx.db.get(args.userId);
@@ -190,6 +199,7 @@ export const updateUser = mutation({
     if (args.isActive !== undefined) updates.isActive = args.isActive;
 
     await ctx.db.patch(args.userId, updates);
+    console.log("[updateUser] SUCCESS - patched:", args.userId);
   },
 });
 
@@ -210,13 +220,30 @@ export const createUser = mutation({
     assignedDesk: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Debug: log caller info
+    console.log("[createUser] callerClerkId:", args.callerClerkId);
+
     // Verify caller is super_admin
     const caller = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", args.callerClerkId))
       .first();
-    if (!caller || caller.role !== "super_admin") {
-      throw new Error("Only super_admin can create users.");
+
+    console.log("[createUser] caller found:", caller ? `${caller.name} (${caller.role})` : "NOT FOUND");
+
+    if (!caller) {
+      // Debug: list all users and their clerkIds to help diagnose
+      const allUsersDebug = await ctx.db.query("users").collect();
+      console.log("[createUser] All users in DB:", allUsersDebug.map(u => ({
+        name: u.name,
+        clerkId: u.clerkId,
+        role: u.role,
+      })));
+      throw new Error(`Only super_admin can create users. No user found with clerkId: ${args.callerClerkId}`);
+    }
+
+    if (caller.role !== "super_admin") {
+      throw new Error(`Only super_admin can create users. Your role: ${caller.role}`);
     }
 
     // Check if email already exists (case-insensitive)
@@ -229,7 +256,7 @@ export const createUser = mutation({
       throw new Error("A user with this email already exists.");
     }
 
-    return await ctx.db.insert("users", {
+    const newId = await ctx.db.insert("users", {
       clerkId: "",
       name: args.name,
       email: emailLower,
@@ -240,6 +267,8 @@ export const createUser = mutation({
       createdAt: Date.now(),
       lastLogin: 0,
     });
+    console.log("[createUser] SUCCESS - new user ID:", newId);
+    return newId;
   },
 });
 
