@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ClerkProvider, SignedIn, SignedOut, SignIn, SignUp, useAuth } from '@clerk/clerk-react'
+import { ClerkProvider, SignIn, SignUp, useAuth, useUser } from '@clerk/clerk-react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 import { ConvexReactClient } from 'convex/react'
 import { AuthProvider } from './contexts/AuthContext'
@@ -54,6 +54,34 @@ function AuthScreen() {
   )
 }
 
+function AuthGate() {
+  const { isSignedIn, isLoaded } = useUser()
+  const isOnAuthPage = window.location.pathname === '/sign-up' || window.location.pathname === '/sign-in'
+
+  // While Clerk is loading, show nothing
+  if (!isLoaded) return null
+
+  // If user is on sign-up or sign-in page, ALWAYS show auth screen.
+  // This prevents the verification step from being destroyed mid-flow
+  // when Clerk briefly reports isSignedIn=true during sign-up.
+  if (isOnAuthPage) {
+    return <AuthScreen />
+  }
+
+  if (!isSignedIn) {
+    return <AuthScreen />
+  }
+
+  // Fully signed in and NOT on auth page → show the app with Convex gatekeeper
+  return (
+    <AuthProvider>
+      <ConvexDataProvider>
+        <App />
+      </ConvexDataProvider>
+    </AuthProvider>
+  )
+}
+
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string
 
 if (!clerkPubKey) {
@@ -76,16 +104,7 @@ if (!clerkPubKey) {
         afterSignOutUrl="/"
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          <SignedOut>
-            <AuthScreen />
-          </SignedOut>
-          <SignedIn>
-            <AuthProvider>
-              <ConvexDataProvider>
-                <App />
-              </ConvexDataProvider>
-            </AuthProvider>
-          </SignedIn>
+          <AuthGate />
         </ConvexProviderWithClerk>
       </ClerkProvider>
     </StrictMode>,
