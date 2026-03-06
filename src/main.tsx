@@ -3,26 +3,13 @@ import { createRoot } from 'react-dom/client'
 import { ClerkProvider, SignedIn, SignedOut, SignIn, SignUp, useAuth } from '@clerk/clerk-react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 import { ConvexReactClient } from 'convex/react'
-import { useState, useEffect } from 'react'
 import { AuthProvider } from './contexts/AuthContext'
 import { ConvexDataProvider } from './contexts/ConvexDataContext'
 import './index.css'
 import App from './App.tsx'
 
-/** Tiny hook that tracks the hash so we can switch between SignIn / SignUp. */
-function useHash() {
-  const [hash, setHash] = useState(window.location.hash)
-  useEffect(() => {
-    const handler = () => setHash(window.location.hash)
-    window.addEventListener('hashchange', handler)
-    return () => window.removeEventListener('hashchange', handler)
-  }, [])
-  return hash
-}
-
 function AuthScreen() {
-  const hash = useHash()
-  const isSignUp = hash.startsWith('#/sign-up')
+  const isSignUp = window.location.pathname === '/sign-up'
 
   return (
     <div style={{
@@ -46,10 +33,10 @@ function AuthScreen() {
         </div>
       </div>
 
-      {/* Show SignIn or SignUp based on hash route */}
+      {/* Show SignIn or SignUp based on path */}
       {isSignUp
-        ? <SignUp routing="hash" signInUrl="#/sign-in" forceRedirectUrl="/" />
-        : <SignIn routing="hash" signUpUrl="#/sign-up" forceRedirectUrl="/" />
+        ? <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
+        : <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
       }
 
       {/* Info notice */}
@@ -82,9 +69,11 @@ if (!clerkPubKey) {
     <StrictMode>
       <ClerkProvider
         publishableKey={clerkPubKey}
+        signInUrl="/sign-in"
+        signUpUrl="/sign-up"
+        afterSignInUrl="/"
+        afterSignUpUrl="/"
         afterSignOutUrl="/"
-        signInForceRedirectUrl="/"
-        signUpForceRedirectUrl="/"
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <SignedOut>
