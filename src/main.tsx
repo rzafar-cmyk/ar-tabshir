@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ClerkProvider, SignIn, SignUp, useAuth, useUser } from '@clerk/clerk-react'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
@@ -9,7 +9,14 @@ import './index.css'
 import App from './App.tsx'
 
 function AuthScreen() {
-  const isSignUp = window.location.pathname === '/sign-up'
+  const isSignUp = window.location.pathname.startsWith('/sign-up')
+
+  useEffect(() => {
+    console.log('[AuthScreen] MOUNTED', { pathname: window.location.pathname, isSignUp })
+    return () => console.log('[AuthScreen] UNMOUNTED', { pathname: window.location.pathname })
+  }, [])
+
+  console.log('[AuthScreen] render', { pathname: window.location.pathname, isSignUp })
 
   return (
     <div style={{
@@ -55,8 +62,11 @@ function AuthScreen() {
 }
 
 function AuthGate() {
-  const { isSignedIn, isLoaded } = useUser()
-  const isOnAuthPage = window.location.pathname === '/sign-up' || window.location.pathname === '/sign-in'
+  const { isSignedIn, isLoaded, user } = useUser()
+  const pathname = window.location.pathname
+  const isOnAuthPage = pathname.startsWith('/sign-up') || pathname.startsWith('/sign-in')
+
+  console.log('[AuthGate] render', { pathname, isLoaded, isSignedIn, userId: user?.id, isOnAuthPage })
 
   // While Clerk is loading, show nothing
   if (!isLoaded) return null
