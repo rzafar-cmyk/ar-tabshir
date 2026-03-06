@@ -200,30 +200,14 @@ export const REPORT_FORM_SECTIONS: FormSection[] = [
     number: 8,
     title: 'Tarbiyyati Classes / Refresher Courses',
     titleUrdu: 'تربیتی کلاسز / ریفریشر کورسز',
-    fields: [],
-    subsections: [
-      {
-        id: 'tarbiyyat-ahmadis',
-        title: '8.a For Ahmadis',
-        titleUrdu: 'برائے احمدی',
-        fields: [
-          { code: 'tca1', label: 'Number of Tarbiyyati Classes/Refresher Courses for Ahmadis', labelUrdu: 'دوران سال کتنی تربیتی کلاسز/ریفریشر کورسز منعقد کیے گئے؟', type: 'number' },
-          { code: 'tca2', label: 'Number of Ahmadis who attended these classes/courses', labelUrdu: 'ان تربیتی کلاسز/ریفریشر کورسز میں کتنے احبابِ جماعت نے شمولیت کی؟', type: 'number' },
-        ],
-      },
-      {
-        id: 'tarbiyyat-other',
-        title: '8.b Other Tarbiyyat Programmes',
-        titleUrdu: 'دیگر تربیتی پروگرامز',
-        fields: [
-          { code: 'tr1', label: 'Estimated number of members who regularly listen to Friday Sermons of Khalifatul Masih (aba)', labelUrdu: 'خطبہ جمعہ حضرت خلیفۃ المسیح ایدہ اللہ باقاعدگی سے سننے والوں کی اندازاً تعداد', type: 'number', notes: 'Best estimate: centre attendance + online viewers' },
-          { code: 'tr2', label: "Number of Jama'ats where regular Dars (Quran, Hadith or Malfuzat) is held", labelUrdu: 'کتنی جماعتوں میں باقاعدہ درس (قرآن، حدیث یا ملفوظات) کا اہتمام ہے؟', type: 'number' },
-
-          { code: 'tr4', label: 'Number of Jalsa Seeratul Nabi held during the year', labelUrdu: 'دوران سال جلسہ سیرت النبیﷺ کی تعداد', type: 'number', isNew: true },
-          { code: 'tr5', label: 'Number of Jalsa Masih-e-Maud held during the year', labelUrdu: 'دوران سال جلسہ مسیح موعودؑ کی تعداد', type: 'number', isNew: true },
-          { code: 'tr6', label: 'Number of Jalsa Musleh Maud held during the year', labelUrdu: 'دوران سال جلسہ مصلح موعودؓ کی تعداد', type: 'number', isNew: true },
-        ],
-      },
+    fields: [
+      { code: 'tr1', label: 'Estimated number of members who regularly listen to Friday Sermons of Khalifatul Masih (aba)', labelUrdu: 'خطبہ جمعہ حضرت خلیفۃ المسیح ایدہ اللہ باقاعدگی سے سننے والوں کی اندازاً تعداد', type: 'number', notes: 'Best estimate: centre attendance + online viewers' },
+      { code: 'tr2', label: "Number of Jama'ats where regular Dars (Quran, Hadith or Malfuzat) is held", labelUrdu: 'کتنی جماعتوں میں باقاعدہ درس (قرآن، حدیث یا ملفوظات) کا اہتمام ہے؟', type: 'number' },
+      { code: 'tca1', label: 'Number of Tarbiyyati Classes/Refresher Courses held', labelUrdu: 'دوران سال کتنی تربیتی کلاسز/ریفریشر کورسز منعقد کیے گئے؟', type: 'number' },
+      { code: 'tca2', label: 'Number of members who attended these classes/courses', labelUrdu: 'ان تربیتی کلاسز/ریفریشر کورسز میں کتنے احبابِ جماعت نے شمولیت کی؟', type: 'number' },
+      { code: 'tr4', label: 'Number of Jalsa Seeratul Nabi held during the year', labelUrdu: 'دوران سال جلسہ سیرت النبیﷺ کی تعداد', type: 'number', isNew: true },
+      { code: 'tr5', label: 'Number of Jalsa Masih-e-Maud held during the year', labelUrdu: 'دوران سال جلسہ مسیح موعودؑ کی تعداد', type: 'number', isNew: true },
+      { code: 'tr6', label: 'Number of Jalsa Musleh Maud held during the year', labelUrdu: 'دوران سال جلسہ مصلح موعودؓ کی تعداد', type: 'number', isNew: true },
     ],
   },
 

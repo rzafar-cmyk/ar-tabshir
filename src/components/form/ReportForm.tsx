@@ -25,7 +25,7 @@ const BEGINNING_INSTRUCTIONS = [
 function BeginningInstructions() {
   const [collapsed, setCollapsed] = useState(false);
   return (
-    <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl shadow-sm overflow-hidden">
+    <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl shadow-sm overflow-hidden print:hidden">
       <button
         type="button"
         onClick={() => setCollapsed(!collapsed)}
@@ -1105,25 +1105,6 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
             />
           ))}
 
-          {/* Important Instructions */}
-          <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl border border-blue-200 p-6 mt-4 shadow-sm">
-            <div className="flex items-start gap-3 mb-4">
-              <span className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-xl text-blue-700 text-lg font-bold flex-shrink-0">!</span>
-              <div>
-                <h3 className="text-base font-bold text-gray-800">Important Instructions</h3>
-                <p className="text-sm text-gray-500 mt-0.5" dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", lineHeight: '2' }}>اہم ہدایات</p>
-              </div>
-            </div>
-            <ul className="space-y-3 text-sm text-gray-700 pl-1">
-              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">&#8226;</span><span>Fields marked with <span className="inline-flex items-center gap-1 text-amber-600 font-semibold"><Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />NEW</span> are newly added this year. Please pay special attention to these.</span></li>
-              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">&#8226;</span><span>A signed hard copy of this report must be kept at the National Office.</span></li>
-              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">&#8226;</span><span>A signed copy of this form must also be sent to Additional Wakālat Tabshīr in addition to the online form.</span></li>
-              <li className="flex items-start gap-2"><span className="text-blue-500 mt-0.5">&#8226;</span><span>Any other additional information that you wish to submit with your report should also be sent to Wakālat Tabshīr on <strong>jalsauk@tabshir.org</strong></span></li>
-            </ul>
-            <div className="mt-4 pt-3 border-t border-blue-200 text-center">
-              <p className="text-sm font-semibold text-blue-800">JazakAllah — جزاک اللہ</p>
-            </div>
-          </div>
         </div>
 
         {/* Progress Sidebar */}
@@ -1138,7 +1119,7 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
       <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <Info className="w-4 h-4 text-amber-600" />
-          <span className="text-sm font-bold text-amber-800">اہم یاددہانی / Important Reminder</span>
+          <span className="text-sm font-bold text-amber-800"><span style={{ fontFamily: "'Noto Nastaliq Urdu', serif" }}>اہم یاددہانی</span> / Important Reminder</span>
         </div>
         <div className="space-y-2">
           <div className="flex gap-3 items-start">

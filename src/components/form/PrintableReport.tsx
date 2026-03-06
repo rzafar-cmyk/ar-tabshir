@@ -418,45 +418,6 @@ export function PrintableReport({ country, year, data, onClose }: PrintableRepor
 
         <hr className="print-divider" />
 
-        {/* Beginning Instructions */}
-        <div className="print-section" style={{ pageBreakInside: 'avoid' }}>
-          <div className="print-section-header">
-            <span className="print-section-number">ℹ</span>
-            <div>
-              <h3 className="print-section-title">Important Instructions</h3>
-              <p className="print-section-urdu">اہم ہدایات</p>
-            </div>
-          </div>
-          <div style={{ padding: '12px 16px', fontSize: '12px', lineHeight: '2', color: '#374151' }}>
-            <ol style={{ margin: '0', paddingLeft: '20px' }}>
-              <li style={{ marginBottom: '6px' }}>
-                Please fill in the form completely and with accurate information.
-                <br /><span dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", display: 'block', textAlign: 'right' }}>فارم کو مکمل طور پر اور درست معلومات کے ساتھ پُر کریں۔</span>
-              </li>
-              <li style={{ marginBottom: '6px' }}>
-                Fields marked with ★ NEW are newly added this year. Please pay special attention to these.
-                <br /><span dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", display: 'block', textAlign: 'right' }}>★ نشان والے خانے اس سال نئے شامل کیے گئے ہیں۔ ان پر خصوصی توجہ دیں۔</span>
-              </li>
-              <li style={{ marginBottom: '6px' }}>
-                A signed hard copy of the final report must be kept at the National Office.
-                <br /><span dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", display: 'block', textAlign: 'right' }}>فائنل رپورٹ کی ایک دستخط شدہ نقل پرنٹ کرکے (Hard Copy) نیشنل آفس میں محفوظ رکھی جائے۔</span>
-              </li>
-              <li style={{ marginBottom: '6px' }}>
-                A signed copy of the final report form must also be sent to Additional Wakālat Tabshīr in addition to the online form.
-                <br /><span dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", display: 'block', textAlign: 'right' }}>رپورٹ فارم کی ایک دستخط شدہ نقل آن لائن فارم کے علاوہ ایڈیشنل وکالت تبشیر کو بھی بذریعہ ای میل بھجوائی جائے۔</span>
-              </li>
-              <li style={{ marginBottom: '6px' }}>
-                Any other additional information that you wish to submit with your report should also be sent to Wakālat Tabshīr at <strong>jalsauk@tabshir.org</strong>
-                <br /><span dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", display: 'block', textAlign: 'right' }}>کوئی بھی اضافی معلومات جو آپ اپنی رپورٹ کے ساتھ جمع کروانا چاہیں، وکالت تبشیر کو بذریعہ ای میل jalsauk@tabshir.org پر بھیجیں۔</span>
-              </li>
-              <li style={{ marginBottom: '6px' }}>
-                If you require any assistance or have any questions regarding this report form, please contact the in-charge person of your country.
-                <br /><span dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", display: 'block', textAlign: 'right' }}>اگر اس رپورٹ فارم کے بارے میں آپ کو کسی قسم کی مدد یا رہنمائی درکار ہو تو براہ کرم اپنے ملک کے انچارج سے رابطہ کریں۔</span>
-              </li>
-            </ol>
-          </div>
-        </div>
-
         {REPORT_FORM_SECTIONS.map(section => (
           <SectionPrint key={section.id} section={section} data={data} year={year} />
         ))}
