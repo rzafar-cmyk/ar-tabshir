@@ -194,12 +194,12 @@ export const REPORT_FORM_SECTIONS: FormSection[] = [
     ],
   },
 
-  // ─── 8. Tarbiyyati Classes / Refresher Courses ───
+  // ─── 8. Tarbiyyati Programs ───
   {
     id: 'tarbiyyati-classes',
     number: 8,
-    title: 'Tarbiyyati Classes / Refresher Courses',
-    titleUrdu: 'تربیتی کلاسز / ریفریشر کورسز',
+    title: 'Tarbiyyati Programs',
+    titleUrdu: 'تربیتی پروگرامز',
     fields: [
       { code: 'tr1', label: 'Estimated number of members who regularly listen to Friday Sermons of Khalifatul Masih (aba)', labelUrdu: 'خطبہ جمعہ حضرت خلیفۃ المسیح ایدہ اللہ باقاعدگی سے سننے والوں کی اندازاً تعداد', type: 'number', notes: 'Best estimate: centre attendance + online viewers' },
       { code: 'tr2', label: "Number of Jama'ats where regular Dars (Quran, Hadith or Malfuzat) is held", labelUrdu: 'کتنی جماعتوں میں باقاعدہ درس (قرآن، حدیث یا ملفوظات) کا اہتمام ہے؟', type: 'number' },
