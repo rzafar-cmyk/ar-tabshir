@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronDown, ChevronRight, Save, Send, Star, CheckCircle2, Circle, AlertCircle, Printer } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Save, Send, Star, CheckCircle2, Circle, AlertCircle, Printer, Info } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { PrintableReport } from './PrintableReport';
 import '@/styles/print-styles.css';
@@ -12,6 +12,49 @@ import { useConvexData } from '@/contexts/ConvexDataContext';
 import type { FieldChange } from '@/lib/audit';
 import { buildCarryForwardData, CARRY_FORWARD_FIELD_CODES } from '@/lib/carry-forward';
 import { getCurrentFiscalYear } from '@/lib/fiscalYear';
+
+const BEGINNING_INSTRUCTIONS = [
+  { urdu: 'فارم کو مکمل طور پر اور درست معلومات کے ساتھ پُر کریں۔', english: 'Please fill in the form completely and with accurate information.' },
+  { urdu: '★ نشان والے خانے اس سال نئے شامل کیے گئے ہیں۔ ان پر خصوصی توجہ دیں۔', english: 'Fields marked with ★ NEW are newly added this year. Please pay special attention to these.' },
+  { urdu: 'فائنل رپورٹ کی ایک دستخط شدہ نقل پرنٹ کرکے (Hard Copy) نیشنل آفس میں محفوظ رکھی جائے۔', english: 'A signed hard copy of the final report must be kept at the National Office.' },
+  { urdu: 'رپورٹ فارم کی ایک دستخط شدہ نقل آن لائن فارم کے علاوہ ایڈیشنل وکالت تبشیر کو بھی بذریعہ ای میل بھجوائی جائے۔', english: 'A signed copy of the final report form must also be sent to Additional Wakālat Tabshīr in addition to the online form.' },
+  { urdu: 'کوئی بھی اضافی معلومات جو آپ اپنی رپورٹ کے ساتھ جمع کروانا چاہیں، وکالت تبشیر کو بذریعہ ای میل jalsauk@tabshir.org پر بھیجیں۔', english: 'Any other additional information that you wish to submit with your report should also be sent to Wakālat Tabshīr at jalsauk@tabshir.org' },
+  { urdu: 'اگر اس رپورٹ فارم کے بارے میں آپ کو کسی قسم کی مدد یا رہنمائی درکار ہو تو براہ کرم اپنے ملک کے انچارج سے رابطہ کریں۔', english: 'If you require any assistance or have any questions regarding this report form, please contact the in-charge person of your country.' },
+];
+
+function BeginningInstructions() {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full px-5 py-4 flex items-center justify-between gap-3 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <Info className="w-5 h-5 text-blue-600 flex-shrink-0" />
+          <div>
+            <span className="text-sm font-bold text-blue-800">اہم ہدایات / Important Instructions</span>
+          </div>
+        </div>
+        {collapsed ? <ChevronDown className="w-4 h-4 text-blue-400" /> : <ChevronUp className="w-4 h-4 text-blue-400" />}
+      </button>
+      {!collapsed && (
+        <div className="px-5 pb-5 space-y-3">
+          {BEGINNING_INSTRUCTIONS.map((item, i) => (
+            <div key={i} className="flex gap-3 items-start">
+              <span className="text-xs font-bold text-blue-500 mt-0.5 flex-shrink-0">{i + 1}.</span>
+              <div className="flex-1 space-y-0.5">
+                <p className="text-sm text-gray-600">{item.english}</p>
+                <p className="text-sm text-gray-700" dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", lineHeight: '2' }}>{item.urdu}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface RevisionFlag {
   fieldCode: string;
@@ -577,9 +620,8 @@ function SectionCard({
           {section.id === 'faith-accounts' ? (
             <div className="space-y-5">
               <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl">
-                <p className="text-sm font-semibold text-amber-800">Please provide detailed accounts for each topic below.</p>
-                <p className="text-xs text-amber-600 mt-1">You may write in English or Urdu. Use the RTL/LTR toggle to switch text direction per field.</p>
-                <p className="text-xs text-amber-600 mt-0.5" dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", lineHeight: '2' }}>براہ کرم ہر موضوع کے لیے تفصیلی واقعات درج کریں۔ آپ انگریزی یا اردو میں لکھ سکتے ہیں۔</p>
+                <p className="text-sm font-semibold text-amber-800">Please provide detailed accounts for each topic below. Preferably in Urdu. You may also write in English if needed. Use the RTL/LTR toggle to switch text direction per field.</p>
+                <p className="text-xs text-amber-600 mt-1" dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", lineHeight: '2' }}>براہ کرم ہر موضوع کے لیے تفصیلی واقعات اردو میں درج کریں۔ تاہم اگر ضرورت ہو تو انگریزی میں بھی لکھ سکتے ہیں۔ نیز کوشش کریں کہ احباب کے نام اور جگہوں کے نام اردو کے ساتھ ساتھ انگریزی میں بھی درست سپیلنگز کے ساتھ درج کئے جائیں۔ انگریزی میں لکھنے کیلئے ٹیکسٹ باکس میں موجود بٹن دباکر انگریزی کیاجاسکتاہے۔</p>
               </div>
               {section.fields.map((field) => {
                 const dirKey = `${field.code}_dir`;
@@ -1043,6 +1085,9 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
         </div>
       )}
 
+      {/* Beginning Instructions */}
+      <BeginningInstructions />
+
       {/* Main Content with Sidebar */}
       <div className="flex gap-6">
         {/* Sections */}
@@ -1087,6 +1132,30 @@ export function ReportForm({ country, countryName, year = getCurrentFiscalYear()
           expandedSections={expandedSections}
           onJumpToSection={jumpToSection}
         />
+      </div>
+
+      {/* End Instructions */}
+      <div className="mt-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center gap-2 mb-3">
+          <Info className="w-4 h-4 text-amber-600" />
+          <span className="text-sm font-bold text-amber-800">اہم یاددہانی / Important Reminder</span>
+        </div>
+        <div className="space-y-2">
+          <div className="flex gap-3 items-start">
+            <span className="text-xs font-bold text-amber-500 mt-0.5 flex-shrink-0">1.</span>
+            <div className="flex-1 space-y-0.5">
+              <p className="text-sm text-gray-600">A signed hard copy of the final report must be kept at the National Office.</p>
+              <p className="text-sm text-gray-700" dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", lineHeight: '2' }}>فائنل رپورٹ کی ایک دستخط شدہ نقل پرنٹ کرکے (Hard Copy) نیشنل آفس میں محفوظ رکھی جائے۔</p>
+            </div>
+          </div>
+          <div className="flex gap-3 items-start">
+            <span className="text-xs font-bold text-amber-500 mt-0.5 flex-shrink-0">2.</span>
+            <div className="flex-1 space-y-0.5">
+              <p className="text-sm text-gray-600">A signed copy of the final report form must also be sent to Additional Wakālat Tabshīr in addition to the online form.</p>
+              <p className="text-sm text-gray-700" dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', serif", lineHeight: '2' }}>رپورٹ فارم کی ایک دستخط شدہ نقل آن لائن فارم کے علاوہ ایڈیشنل وکالت تبشیر کو بھی بذریعہ ای میل بھجوائی جائے۔</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Sticky Bottom Actions */}

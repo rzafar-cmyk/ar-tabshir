@@ -69,17 +69,17 @@ export const FIELD_MAP: FieldDefinition[] = [
   { excel_code: 'b2', column: 'b2_nations_entered',  section_en: "6. Bai'ats", section_ur: 'بیعتیں', label_en: 'Nations Entered Ahmadiyyat', label_ur: 'قومیں جو احمدیت میں داخل ہوئیں', db_type: 'int', aggregatable: true },
 
   // ═══ SECTION 7: Lost Contact ═══
-  { excel_code: 'nm1', column: 'nm1_contacts_previous', section_en: '7. Lost Nau Muba\'een Contact', section_ur: 'گمشدہ نومبائعین', label_en: 'Contacts as of previous June', label_ur: 'رابطے جون تک', db_type: 'int', aggregatable: true },
-  { excel_code: 'nm2', column: 'nm2_contacts_new',      section_en: '7. Lost Nau Muba\'een Contact', section_ur: 'گمشدہ نومبائعین', label_en: 'New Contacts This Year', label_ur: 'دوران سال نئے رابطے', db_type: 'int', aggregatable: true },
-  { excel_code: 'nm3', column: 'nm3_contacts_total',    section_en: '7. Lost Nau Muba\'een Contact', section_ur: 'گمشدہ نومبائعین', label_en: 'Total Contacts Re-established', label_ur: 'کل بحال شدہ رابطے', db_type: 'int', aggregatable: true },
+  { excel_code: 'nm1', column: 'nm1_contacts_previous', section_en: '7. Tarbiyyat Nau Muba\'ieen', section_ur: 'تربیت نومبائعین', label_en: 'Contacts as of previous June', label_ur: 'رابطے جون تک', db_type: 'int', aggregatable: true },
+  { excel_code: 'nm2', column: 'nm2_contacts_new',      section_en: '7. Tarbiyyat Nau Muba\'ieen', section_ur: 'تربیت نومبائعین', label_en: 'New Contacts This Year', label_ur: 'دوران سال نئے رابطے', db_type: 'int', aggregatable: true },
+  { excel_code: 'nm3', column: 'nm3_contacts_total',    section_en: '7. Tarbiyyat Nau Muba\'ieen', section_ur: 'تربیت نومبائعین', label_en: 'Total Contacts Re-established', label_ur: 'کل بحال شدہ رابطے', db_type: 'int', aggregatable: true },
 
   // ═══ SECTION 8: Tarbiyyati Classes ═══
   { excel_code: 'tca1', column: 'tca1_classes_ahmadis',       section_en: '8. Tarbiyyati Classes (Ahmadis)', section_ur: 'تربیتی کلاسز', label_en: 'Classes for Ahmadis', label_ur: 'احمدیوں کے لیے کلاسز', db_type: 'int', aggregatable: true },
   { excel_code: 'tca2', column: 'tca2_attendees_ahmadis',     section_en: '8. Tarbiyyati Classes (Ahmadis)', section_ur: 'تربیتی کلاسز', label_en: 'Ahmadi Attendees', label_ur: 'احمدی شرکاء', db_type: 'int', aggregatable: true },
-  { excel_code: 'tcn1', column: 'tcn1_classes_nau_mubaeen',   section_en: '8. Tarbiyyati Classes (Nau Mubaeen)', section_ur: 'تربیتی کلاسز نومبائعین', label_en: 'Classes for Nau Muba\'een', label_ur: 'نومبائعین کے لیے کلاسز', db_type: 'int', aggregatable: true },
-  { excel_code: 'tcn2', column: 'tcn2_attendees_nau_mubaeen', section_en: '8. Tarbiyyati Classes (Nau Mubaeen)', section_ur: 'تربیتی کلاسز نومبائعین', label_en: 'Nau Muba\'een Attendees', label_ur: 'نومبائعین شرکاء', db_type: 'int', aggregatable: true },
-  { excel_code: 'tcn3', column: 'tcn3_jamaats_with_classes',  section_en: '8. Tarbiyyati Classes (Nau Mubaeen)', section_ur: 'تربیتی کلاسز نومبائعین', label_en: 'Jama\'ats Where Classes Held', label_ur: 'جماعتیں جہاں کلاسز ہوئیں', db_type: 'int', aggregatable: true },
-  { excel_code: 'tcn4', column: 'tcn4_imams_trained',         section_en: '8. Tarbiyyati Classes (Nau Mubaeen)', section_ur: 'تربیتی کلاسز نومبائعین', label_en: 'Imams/Chiefs Trained', label_ur: 'تربیت یافتہ آئمہ', db_type: 'int', aggregatable: true },
+  { excel_code: 'tcn1', column: 'tcn1_classes_nau_mubaeen',   section_en: '7. Tarbiyyat Nau Muba\'ieen', section_ur: 'تربیت نومبائعین', label_en: 'Classes for Nau Muba\'een', label_ur: 'نومبائعین کے لیے کلاسز', db_type: 'int', aggregatable: true },
+  { excel_code: 'tcn2', column: 'tcn2_attendees_nau_mubaeen', section_en: '7. Tarbiyyat Nau Muba\'ieen', section_ur: 'تربیت نومبائعین', label_en: 'Nau Muba\'een Attendees', label_ur: 'نومبائعین شرکاء', db_type: 'int', aggregatable: true },
+  { excel_code: 'tcn3', column: 'tcn3_jamaats_with_classes',  section_en: '7. Tarbiyyat Nau Muba\'ieen', section_ur: 'تربیت نومبائعین', label_en: 'Jama\'ats Where Classes Held', label_ur: 'جماعتیں جہاں کلاسز ہوئیں', db_type: 'int', aggregatable: true },
+  { excel_code: 'tcn4', column: 'tcn4_imams_trained',         section_en: '7. Tarbiyyat Nau Muba\'ieen', section_ur: 'تربیت نومبائعین', label_en: 'Imams/Chiefs Trained', label_ur: 'تربیت یافتہ آئمہ', db_type: 'int', aggregatable: true },
 
   // ═══ SECTION 9a: Media — Jama'at ═══
   { excel_code: 'mcj1', column: 'mcj1_radio_stations',  section_en: '9. Media Coverage (Jama\'at)', section_ur: 'ذرائع ابلاغ جماعت', label_en: 'Jama\'at Radio Stations', label_ur: 'جماعتی ریڈیو سٹیشنز', db_type: 'int', aggregatable: true },

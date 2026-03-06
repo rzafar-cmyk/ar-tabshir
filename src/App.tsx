@@ -270,7 +270,11 @@ function ReportsSection({ onEditReport }: { onEditReport: (country: string, year
     approvedAt: r.approvedAt,
   });
 
-  const liveReports: Report[] = convexActiveReports.map(storedToReport);
+  const allLiveReports: Report[] = convexActiveReports.map(storedToReport);
+  // Desk In-charge only sees reports for their assigned countries
+  const liveReports: Report[] = authUser?.role === 'desk_incharge'
+    ? allLiveReports.filter(r => (authUser.assignedCountries ?? []).includes(r.country))
+    : allLiveReports;
 
   // Smart year default: if current fiscal year has no data, show all years
   useEffect(() => {

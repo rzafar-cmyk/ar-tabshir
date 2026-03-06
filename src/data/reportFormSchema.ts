@@ -157,8 +157,8 @@ export const REPORT_FORM_SECTIONS: FormSection[] = [
   {
     id: 'nau-mubaeen',
     number: 7,
-    title: "Contact with Nau Muba'ieen",
-    titleUrdu: 'نومبائعین سے رابطہ',
+    title: "Tarbiyyat Nau Muba'ieen",
+    titleUrdu: 'تربیت نومبائعین',
     fields: [],
     subsections: [
       {
@@ -176,8 +176,19 @@ export const REPORT_FORM_SECTIONS: FormSection[] = [
         title: "7.b Contact with Nau Muba'ieen (of last 3 years)",
         titleUrdu: 'گزشتہ تین سال کے نومبائعین سے رابطہ',
         fields: [
-          { code: 'nmb1', label: "Number of Nau Muba'ieen contacted during the year", labelUrdu: 'گزشتہ تین سال کے نومائعین میں سے کتنوں کے ساتھ رابطہ قائم رہا؟', type: 'number', isNew: true },
+          { code: 'nmb1', label: "Number of Nau Muba'ieen contacted during the year", labelUrdu: 'گزشتہ تین سال کے نومبائعین میں سے کتنوں کے ساتھ رابطہ قائم رہا؟', type: 'number', isNew: true },
           { code: 'nmb2', label: 'How many Nau Muba\'ieen have been included in the Financial Sacrifice Schemes', labelUrdu: 'کتنے نومبائعین کو مالی قربانی کے نظام کا حصہ بنایاگیا؟', type: 'number', isNew: true },
+        ],
+      },
+      {
+        id: 'tarbiyyat-nau-mubaeen',
+        title: "Tarbiyyati Classes/Programs",
+        titleUrdu: 'تربیتی کلاسز/پروگرامز',
+        fields: [
+          { code: 'tcn1', label: "Number of Tarbiyyati Classes/Refresher Courses for Nau Muba'een", labelUrdu: 'دوران سال نومبائعین کے لئے کتنی تربیتی کلاسز منعقد کیے گئے؟', type: 'number' },
+          { code: 'tcn2', label: "Number of Nau Muba'een Participants", labelUrdu: 'کتنے نومبائعین نے تربیت حاصل کی؟', type: 'number' },
+          { code: 'tcn3', label: "Number of Jama'ats where these Classes/Courses are held", labelUrdu: 'تعداد جماعتیں جن میں کلاسز منعقد ہوئیں', type: 'number' },
+          { code: 'tcn4', label: 'Number of Imams and Chiefs Trained During the Year', labelUrdu: 'دورانِ سال کتنے اماموں اور چیفس کو ٹریننگ دی گئی؟', type: 'number' },
         ],
       },
     ],
@@ -201,19 +212,8 @@ export const REPORT_FORM_SECTIONS: FormSection[] = [
         ],
       },
       {
-        id: 'tarbiyyat-nau-mubaeen',
-        title: "8.b For Nau Muba'een",
-        titleUrdu: 'برائے نومبائعین',
-        fields: [
-          { code: 'tcn1', label: "Number of Tarbiyyati Classes/Refresher Courses for Nau Muba'een", labelUrdu: 'دوران سال نومبائعین کے لئے کتنی تربیتی کلاسز منعقد کیے گئے؟', type: 'number' },
-          { code: 'tcn2', label: "Number of Nau Muba'een Participants", labelUrdu: 'کتنے نومبائعین نے تربیت حاصل کی؟', type: 'number' },
-          { code: 'tcn3', label: "Number of Jama'ats where these Classes/Courses are held", labelUrdu: 'تعداد جماعتیں جن میں کلاسز منعقد ہوئیں', type: 'number' },
-          { code: 'tcn4', label: 'Number of Imams and Chiefs Trained During the Year', labelUrdu: 'دورانِ سال کتنے اماموں اور چیفس کو ٹریننگ دی گئی؟', type: 'number' },
-        ],
-      },
-      {
         id: 'tarbiyyat-other',
-        title: '8.c Other Tarbiyyat Programmes',
+        title: '8.b Other Tarbiyyat Programmes',
         titleUrdu: 'دیگر تربیتی پروگرامز',
         fields: [
           { code: 'tr1', label: 'Estimated number of members who regularly listen to Friday Sermons of Khalifatul Masih (aba)', labelUrdu: 'خطبہ جمعہ حضرت خلیفۃ المسیح ایدہ اللہ باقاعدگی سے سننے والوں کی اندازاً تعداد', type: 'number', notes: 'Best estimate: centre attendance + online viewers' },
