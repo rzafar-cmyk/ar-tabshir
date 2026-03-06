@@ -36,7 +36,7 @@ function AuthScreen() {
       {/* Show SignIn or SignUp based on path */}
       {isSignUp
         ? <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
-        : <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
+        : <SignIn signUpUrl="/sign-up" />
       }
 
       {/* Info notice */}
